@@ -293,7 +293,9 @@ describe("kill and resume", () => {
     // How far fsync checkpoints got before the abort depends on load, so assert the formula, not a value.
     h.session.calls.length = 0;
     await downloadFile(req({ signal: new AbortController().signal }));
-    expect(h.session.calls[0]!.offset).toBe(Math.max(0, durable - 1024 * 1024));
+    // Under load every byte can be durable before the abort lands; then the resume has nothing left to read.
+    if (durable === size) expect(h.session.calls).toEqual([]);
+    else expect(h.session.calls[0]!.offset).toBe(Math.max(0, durable - 1024 * 1024));
     expect(sha(staged(h.staging))).toBe(sha(h.data));
   });
 
@@ -481,7 +483,7 @@ describe("range completeness", () => {
     expect(h.session.calls).toHaveLength(2);
   });
 
-  it("treats a stream that sends more than the range as an error and keeps the neighbour intact", async () => {
+  it("treats a stream that sends more than the range as an error and keeps the neighbor intact", async () => {
     const h = setup({ size: 40_000, behavior: (c) => (c.offset === 0 ? { extra: 5000 } : undefined) });
     await expect(downloadFile(h.base({ rangeStreams: 2, retries: 3 }))).rejects.toBeInstanceOf(RangeOverrun);
     expect(h.backoffs).toEqual([]);
