@@ -1,0 +1,9 @@
+<h1>Run #<%= it.run.id %> <span class="muted">of <a href="/jobs/<%= it.run.jobId %>"><%= it.run.jobName %></a></span></h1>
+<% if (it.run.terminal) { %>
+<div id="run-live"><%~ include("partials/run-live", it) %></div>
+<% } else { %>
+<div hx-ext="sse" sse-connect="/events">
+  <div id="run-live" hx-get="/runs/<%= it.run.id %>/live<%= it.fileFilter ? '?state=' + encodeURIComponent(it.fileFilter) : '' %>" hx-trigger="sse:run-state" hx-swap="innerHTML"><%~ include("partials/run-live", it) %></div>
+</div>
+<% } %>
+<p><a href="/runs">Back to runs</a></p>

@@ -1,0 +1,131 @@
+<% const v = it.values, e = it.errors; const curHost = it.hosts.find((h) => String(h.id) === v.host_id); const noHash = !!curHost && curHost.noHashes; %>
+<label for="name">Name</label>
+<input type="text" id="name" name="name" value="<%= v.name %>" required maxlength="100">
+<% if (e.name) { %><div class="field-error"><%= e.name %></div><% } %>
+
+<label for="host_id">Host</label>
+<select id="host_id" name="host_id" required>
+  <option value="">Choose a host</option>
+  <% for (const h of it.hosts) { %><option value="<%= h.id %>"<% if (String(h.id) === v.host_id) { %> selected<% } %>><%= h.name %> (<%= h.protocol %>)</option><% } %>
+</select>
+<% if (e.host_id) { %><div class="field-error"><%= e.host_id %></div><% } %>
+<% if (it.hosts.length === 0) { %><div class="hint">No hosts yet: <a href="/hosts/new">add a host</a> first.</div><% } %>
+
+<label for="remote_path">Remote path</label>
+<div class="pathrow">
+  <%~ include("browse-input", { field: "remote_path", value: v.remote_path }) %>
+  <button type="button" hx-get="/browse/remote" hx-include="#host_id, #remote_path" hx-target="#remote_path-browser">Browse</button>
+</div>
+<div id="remote_path-browser"></div>
+<% if (e.remote_path) { %><div class="field-error"><%= e.remote_path %></div><% } %>
+
+<label for="local_path">Local path</label>
+<div class="pathrow">
+  <%~ include("browse-input", { field: "local_path", value: v.local_path }) %>
+  <button type="button" hx-get="/browse/local" hx-include="#local_path" hx-target="#local_path-browser">Browse</button>
+</div>
+<div id="local_path-browser"></div>
+<% if (e.local_path) { %><div class="field-error"><%= e.local_path %></div><% } %>
+<div class="hint">Must be an existing, writable folder inside the allowed folders. The stored value is the resolved real path.</div>
+
+<% if (it.job) { %>
+<label class="check"><input type="checkbox" name="confirm_ledger_reset" value="on"<% if (v.confirm_ledger_reset === "on") { %> checked<% } %>> I understand that changing the host or remote path resets this job's ledger</label>
+<% if (e.confirm_ledger_reset) { %><div class="field-error"><%= e.confirm_ledger_reset %></div><% } %>
+<% } %>
+
+<div class="grid-2">
+  <div>
+    <label for="mode">Mode</label>
+    <select id="mode" name="mode"><option value="copy_new" selected>Copy new files only</option><option value="mirror" disabled>Mirror (Phase 2)</option></select>
+    <% if (e.mode) { %><div class="field-error"><%= e.mode %></div><% } %>
+  </div>
+  <div>
+    <label for="unit_mode">Unit mode</label>
+    <select id="unit_mode" name="unit_mode">
+      <option value="top_dir"<% if (v.unit_mode !== "file") { %> selected<% } %>>Top-level folder (season packs stay together)</option>
+      <option value="file"<% if (v.unit_mode === "file") { %> selected<% } %>>Single files</option>
+    </select>
+    <% if (e.unit_mode) { %><div class="field-error"><%= e.unit_mode %></div><% } %>
+  </div>
+  <div>
+    <label for="after_sync">After sync</label>
+    <select id="after_sync" name="after_sync">
+      <% for (const o of [["keep", "Keep remote files"], ["delete", "Delete remote files"], ["delete_after_days", "Delete after N days"], ["move", "Move on the remote"]]) { %>
+      <option value="<%= o[0] %>"<% if ((v.after_sync || "keep") === o[0]) { %> selected<% } %>><%= o[1] %></option>
+      <% } %>
+    </select>
+    <% if (e.after_sync) { %><div class="field-error"><%= e.after_sync %></div><% } %>
+    <div class="hint">Delete and move act only after the local copy is verified and the remote file is unchanged.</div>
+    <% if (v.after_sync === "delete") { %><div class="banner banner-warn">Remote files will be deleted after each verified copy. They cannot be recovered from the server.</div><% } %>
+    <style>.f-days, .f-move { display: none; } form:has(#after_sync option[value="delete_after_days"]:checked) .f-days, form:has(#after_sync option[value="move"]:checked) .f-move { display: block; }</style>
+    <div class="f-days">
+      <label for="after_days">Delete after (days)</label>
+      <input type="number" id="after_days" name="after_days" value="<%= v.after_days %>" min="1" max="3650" step="1">
+      <% if (e.after_days) { %><div class="field-error"><%= e.after_days %></div><% } %>
+      <div class="hint">Whole days from the sync, 1 to 3650. Checked daily by the maintenance task.</div>
+    </div>
+    <div class="f-move">
+      <label for="move_to">Move to (remote folder)</label>
+      <input type="text" id="move_to" name="move_to" value="<%= v.move_to %>" maxlength="4096" placeholder="/done">
+      <% if (e.move_to) { %><div class="field-error"><%= e.move_to %></div><% } %>
+      <div class="hint">Absolute path outside the remote path above. Created if missing; name clashes get a numeric suffix.</div>
+    </div>
+  </div>
+  <div>
+    <label for="verify">Verify</label>
+    <select id="verify" name="verify">
+      <option value="size"<% if (v.verify !== "checksum") { %> selected<% } %>>Size</option>
+      <option value="checksum"<% if (noHash) { %> disabled<% } %><% if (v.verify === "checksum") { %> selected<% } %>>Checksum<%= noHash ? " (unavailable: FTP/FTPS has no hashes)" : "" %></option>
+    </select>
+    <% if (e.verify) { %><div class="field-error"><%= e.verify %></div><% } %>
+    <div class="hint">Checksum needs an SFTP host: FTP and FTPS servers provide no file hashes.</div>
+  </div>
+</div>
+
+<h3>Schedule</h3>
+<div class="grid-2">
+  <div>
+    <label for="schedule_kind">Kind</label>
+    <select id="schedule_kind" name="schedule_kind">
+      <% for (const k of [["manual", "Manual only"], ["cron", "Cron"], ["interval", "Interval"]]) { %><option value="<%= k[0] %>"<% if (v.schedule_kind === k[0]) { %> selected<% } %>><%= k[1] %></option><% } %>
+    </select>
+    <% if (e.schedule_kind) { %><div class="field-error"><%= e.schedule_kind %></div><% } %>
+  </div>
+  <div>
+    <label for="schedule_expr">Expression</label>
+    <input type="text" id="schedule_expr" name="schedule_expr" value="<%= v.schedule_expr %>" placeholder="0 3 * * *  or  6h" autocomplete="off">
+    <% if (e.schedule_expr) { %><div class="field-error"><%= e.schedule_expr %></div><% } %>
+  </div>
+</div>
+<div id="schedule-preview" class="hint" hx-get="/jobs/schedule-preview" hx-trigger="load, input from:#schedule_expr delay:300ms, change from:#schedule_kind" hx-include="#schedule_kind, #schedule_expr"></div>
+<div class="hint">Cron: five fields, for example 0 3 * * * (daily at 03:00). Interval: a number and s, m, h or d, minimum 60s, for example 6h.</div>
+
+<h3>Filters</h3>
+<div class="grid-2">
+  <div><label for="min_size">Minimum size</label><input type="text" id="min_size" name="min_size" value="<%= v.min_size %>" placeholder="500MB"><% if (e.min_size) { %><div class="field-error"><%= e.min_size %></div><% } %></div>
+  <div><label for="max_size">Maximum size</label><input type="text" id="max_size" name="max_size" value="<%= v.max_size %>" placeholder="2GB"><% if (e.max_size) { %><div class="field-error"><%= e.max_size %></div><% } %></div>
+  <div><label for="include_globs">Include patterns (one per line, empty = everything)</label><textarea id="include_globs" name="include_globs" rows="3" spellcheck="false"><%= v.include_globs %></textarea><% if (e.include_globs) { %><div class="field-error"><%= e.include_globs %></div><% } %></div>
+  <div><label for="exclude_globs">Exclude patterns (one per line)</label><textarea id="exclude_globs" name="exclude_globs" rows="3" spellcheck="false"><%= v.exclude_globs %></textarea><% if (e.exclude_globs) { %><div class="field-error"><%= e.exclude_globs %></div><% } %></div>
+</div>
+<div class="hint">Sizes use 1 KB = 1024 bytes. Patterns are globs such as **/*.part.</div>
+
+<h3>Timing and safety</h3>
+<div class="grid-2">
+  <div><label for="settle_seconds">Settle time (seconds)</label><input type="number" id="settle_seconds" name="settle_seconds" value="<%= v.settle_seconds %>" min="0"><% if (e.settle_seconds) { %><div class="field-error"><%= e.settle_seconds %></div><% } %><div class="hint">A file must stay unchanged this long before it is copied.</div></div>
+  <div><label for="min_age_seconds">Minimum age (seconds)</label><input type="number" id="min_age_seconds" name="min_age_seconds" value="<%= v.min_age_seconds %>" min="0"><% if (e.min_age_seconds) { %><div class="field-error"><%= e.min_age_seconds %></div><% } %></div>
+  <div><label for="min_free_bytes">Minimum free space</label><input type="text" id="min_free_bytes" name="min_free_bytes" value="<%= v.min_free_bytes %>" placeholder="20GB"><% if (e.min_free_bytes) { %><div class="field-error"><%= e.min_free_bytes %></div><% } %><div class="hint">The run waits or skips when the local disk has less free space.</div></div>
+  <div><label for="bwlimit">Bandwidth limit</label><input type="text" id="bwlimit" name="bwlimit" value="<%= v.bwlimit %>" placeholder="10MB/s"><% if (e.bwlimit) { %><div class="field-error"><%= e.bwlimit %></div><% } %></div>
+  <div><label for="changed_policy">Changed files</label>
+    <select id="changed_policy" name="changed_policy"><option value="skip"<% if (v.changed_policy !== "resync") { %> selected<% } %>>Skip (keep the first copy)</option><option value="resync"<% if (v.changed_policy === "resync") { %> selected<% } %>>Resync when the size changes</option></select>
+    <% if (e.changed_policy) { %><div class="field-error"><%= e.changed_policy %></div><% } %></div>
+</div>
+<label class="check"><input type="checkbox" name="trust_mtime" value="on"<% if (v.trust_mtime === "on") { %> checked<% } %>> Trust modification times</label>
+<div class="hint">FTP servers often report wrong times. Leave this off unless your server's times are reliable; with it on, an unchanged size and time skips the settle check.</div>
+
+<h3>Performance</h3>
+<div class="grid-2">
+  <div><label for="parallel_files">Parallel files (1-16)</label><input type="number" id="parallel_files" name="parallel_files" value="<%= v.parallel_files %>" min="1" max="16"><% if (e.parallel_files) { %><div class="field-error"><%= e.parallel_files %></div><% } %></div>
+  <div><label for="range_streams">Streams per file (1-8)</label><input type="number" id="range_streams" name="range_streams" value="<%= v.range_streams %>" min="1" max="8"><% if (e.range_streams) { %><div class="field-error"><%= e.range_streams %></div><% } %></div>
+  <div><label for="retries">Retries (0-10)</label><input type="number" id="retries" name="retries" value="<%= v.retries %>" min="0" max="10"><% if (e.retries) { %><div class="field-error"><%= e.retries %></div><% } %></div>
+</div>
+<label class="check"><input type="checkbox" name="enabled" value="on"<% if (v.enabled === "on") { %> checked<% } %>> Enabled</label>

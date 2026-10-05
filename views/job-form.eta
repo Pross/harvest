@@ -1,0 +1,8 @@
+<section class="panel">
+  <h2>New job</h2>
+  <form method="post" action="<%= it.action %>" class="card">
+    <%~ it.csrfField %>
+    <%~ include("partials/job-fields", it) %>
+    <p class="actions"><button type="submit" class="primary">Save job</button> <a href="/jobs">Cancel</a></p>
+  </form>
+</section>

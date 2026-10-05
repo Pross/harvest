@@ -1,0 +1,44 @@
+<section class="panel">
+  <div class="card">
+    <p><span class="badge <%= it.run.badge %>"><%= it.run.state %></span><% if (it.run.dryRun) { %> <span class="badge">dry run</span><% } %>
+      <span class="muted">trigger: <%= it.run.trigger %></span></p>
+    <p>Started <%~ it.run.whenHtml %> &middot; duration <%= it.run.duration %> &middot; <%= it.run.bytes %> of <%= it.run.total %> &middot; average <%= it.run.speed %></p>
+    <p>Files: <%= it.run.files %> ok, <%= it.run.failed %> failed, <%= it.run.skipped %> skipped</p>
+    <% if (it.run.error) { %><div class="banner banner-danger" role="alert"><%= it.run.error %></div><% } %>
+    <% if (!it.run.terminal) { %>
+    <form method="post" action="/runs/<%= it.run.id %>/cancel"><%~ it.csrfField %><button type="submit" class="danger">Cancel run</button></form>
+    <% } %>
+  </div>
+</section>
+<section class="panel">
+  <h2>Timeline</h2>
+  <% if (it.timeline.length === 0) { %><p class="muted">No state changes recorded.</p><% } else { %>
+  <ul class="timeline">
+  <% for (const t of it.timeline) { %><li><span class="sev-<%= t.severity %>"><%~ t.whenHtml %></span> <span class="muted"><%= t.category %></span> <%= t.summary %></li><% } %>
+  </ul>
+  <% } %>
+</section>
+<% if (it.dryRun) { %><%~ include("dryrun", it) %><% } else { %>
+<section class="panel">
+  <h2>Files (<%= it.totalFiles %>)</h2>
+  <form method="get" action="/runs/<%= it.run.id %>" class="filters">
+    <select name="state" aria-label="File state">
+      <option value="">Any state</option>
+      <% for (const s of it.fileStates) { %><option value="<%= s %>"<% if (it.fileFilter === s) { %> selected<% } %>><%= s %></option><% } %>
+    </select>
+    <button type="submit">Filter</button>
+  </form>
+  <% if (it.files.length === 0) { %><p class="muted">No files recorded.</p><% } else { %>
+  <table class="cards"><thead><tr><th>Path</th><th>State</th><th class="num">Transferred</th><th class="num">Size</th><th class="num">Attempts</th><th>Error</th></tr></thead><tbody>
+  <% for (const f of it.files) { %>
+    <tr><td data-label="Path" class="path"><code><%= f.path %></code></td>
+      <td data-label="State"><span class="badge <%= f.badge %>"><%= f.state %></span></td>
+      <td data-label="Transferred" class="num"><%= f.bytes %></td><td data-label="Size" class="num"><%= f.size %></td>
+      <td data-label="Attempts" class="num"><%= f.attempts %></td>
+      <td data-label="Error"><% if (f.error) { %><span class="sev-error"><%= f.error %></span><% } %></td></tr>
+  <% } %>
+  </tbody></table>
+  <% if (it.hiddenFiles > 0) { %><p class="muted">Showing the first <%= it.files.length %> files; <%= it.hiddenFiles %> more are hidden. Use the state filter to narrow the list.</p><% } %>
+  <% } %>
+</section>
+<% } %>

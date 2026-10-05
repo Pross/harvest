@@ -1,0 +1,21 @@
+<section class="panel">
+  <div class="toolbar"><h2>Notification channels</h2><a class="btn primary" href="/channels/new">Add channel</a></div>
+  <p class="hint">Channels receive a short message when a run finishes, depending on each job's notification setting. Addresses are entered by an administrator and may point at private hosts. Redirects are never followed. Tokens and webhook URLs are stored encrypted and never shown again.</p>
+  <% if (it.channels.length === 0) { %>
+  <p class="muted">No channels yet.</p>
+  <% } else { %>
+  <table class="cards"><thead><tr><th>Name</th><th>Kind</th><th>Status</th><th class="num">Jobs</th><th></th></tr></thead><tbody>
+  <% for (const c of it.channels) { %>
+    <tr><td data-label="Name"><a href="/channels/<%= c.id %>"><%= c.name %></a></td>
+      <td data-label="Kind"><span class="badge"><%= c.kind %></span></td>
+      <td data-label="Status"><%= c.enabled ? "enabled" : "disabled" %></td>
+      <td data-label="Jobs" class="num"><%= c.jobCount %></td>
+      <td class="actions">
+        <form method="post" action="/channels/<%= c.id %>/test"><%~ it.csrfField %><button type="submit" hx-post="/channels/<%= c.id %>/test" hx-target="#test-<%= c.id %>">Send test</button></form>
+        <form method="post" action="/channels/<%= c.id %>/delete"><%~ it.csrfField %><button type="submit" class="danger" hx-confirm="Delete channel <%= c.name %>?<%= c.jobCount > 0 ? ' It will be removed from ' + c.jobCount + ' job(s).' : '' %>">Delete</button></form>
+      </td></tr>
+    <tr class="result-row"><td colspan="5"><div id="test-<%= c.id %>" aria-live="polite"></div></td></tr>
+  <% } %>
+  </tbody></table>
+  <% } %>
+</section>

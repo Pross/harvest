@@ -1,0 +1,23 @@
+<section class="panel">
+  <div class="toolbar"><h2>Hosts</h2><a class="btn primary" href="/hosts/new">Add host</a></div>
+  <% if (it.anyUndecryptable) { %><div class="banner banner-warn" role="alert"><%= it.undecryptableMessage %> Open each marked host and enter its password or key again.</div><% } %>
+  <% if (it.hosts.length === 0) { %>
+  <p class="muted">No hosts yet. Add the FTP, FTPS or SFTP server you want to pull from.</p>
+  <% } else { %>
+  <table class="cards"><thead><tr><th>Name</th><th>Protocol</th><th>Address</th><th>User</th><th>Host key</th><th class="num">Jobs</th><th></th></tr></thead><tbody>
+  <% for (const h of it.hosts) { %>
+    <tr><td data-label="Name"><a href="/hosts/<%= h.id %>"><%= h.name %></a><% if (h.undecryptable) { %> <span class="badge" title="<%= it.undecryptableMessage %>">credentials unreadable</span><% } %></td>
+      <td data-label="Protocol"><span class="badge"><%= h.protocol %></span></td>
+      <td data-label="Address"><code><%= h.host %>:<%= h.port %></code></td>
+      <td data-label="User"><%= h.username %></td>
+      <td data-label="Host key"><% if (h.pinned) { %><code class="fp"><%= h.keyStatus %></code><% } else { %><span class="muted"><%= h.keyStatus %></span><% } %></td>
+      <td data-label="Jobs" class="num"><%= h.jobCount %></td>
+      <td class="actions">
+        <form method="post" action="/hosts/<%= h.id %>/test"><%~ it.csrfField %><button type="submit" hx-post="/hosts/<%= h.id %>/test" hx-target="#test-<%= h.id %>">Test</button></form>
+        <form method="post" action="/hosts/<%= h.id %>/delete"><%~ it.csrfField %><button type="submit" class="danger" hx-confirm="Delete host <%= h.name %>?">Delete</button></form>
+      </td></tr>
+    <tr class="result-row"><td colspan="7"><div id="test-<%= h.id %>"></div></td></tr>
+  <% } %>
+  </tbody></table>
+  <% } %>
+</section>

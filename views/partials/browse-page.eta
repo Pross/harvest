@@ -1,0 +1,5 @@
+<section class="panel">
+  <h2>Browse folders</h2>
+  <div class="card"><%~ include("browse-listing", it) %></div>
+  <p class="hint">Copy the folder path into the job form. Enable JavaScript to pick folders directly.</p>
+</section>

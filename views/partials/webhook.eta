@@ -1,0 +1,33 @@
+<h2>Webhook triggers</h2>
+<p class="hint">Start this job when a torrent client finishes a download: <code>POST <%= it.hookUrl %></code> with an <code>Authorization: Bearer</code> token. Tokens only work for this job. A running job queues one follow-up run.</p>
+<% if (it.newToken) { %>
+<div class="banner banner-warn" role="alert">
+  <strong>Copy this token now. It is shown only once.</strong>
+  <p><code id="new-token"><%= it.newToken %></code></p>
+</div>
+<% } %>
+<div class="card">
+  <% if (it.tokens.length === 0) { %><p class="muted">No tokens yet.</p><% } else { %>
+  <table class="cards"><thead><tr><th>Name</th><th>Created</th><th>Last used</th><th></th></tr></thead><tbody>
+  <% for (const t of it.tokens) { %>
+    <tr><td data-label="Name"><%= t.name %></td><td data-label="Created"><%~ t.createdHtml %></td><td data-label="Last used"><%~ t.lastUsedHtml %></td>
+      <td><form method="post" action="/jobs/<%= it.job.id %>/tokens/<%= t.id %>/revoke"><%~ it.csrfField %><button type="submit" class="danger" hx-confirm="Revoke this token? Clients using it stop working.">Revoke</button></form></td></tr>
+  <% } %>
+  </tbody></table>
+  <% } %>
+  <form method="post" action="/jobs/<%= it.job.id %>/tokens">
+    <%~ it.csrfField %>
+    <label for="token-name">New token name</label>
+    <input id="token-name" name="name" maxlength="60" required placeholder="qBittorrent" value="<%= it.values.name || '' %>">
+    <% if (it.errors.name) { %><div class="field-error"><%= it.errors.name %></div><% } %>
+    <button type="submit" class="primary">Create token</button>
+  </form>
+</div>
+<% for (const s of it.snippets) { %>
+<div class="card">
+  <h3><%= s.title %></h3>
+  <p class="hint"><%= s.where %></p>
+  <pre><code><%= s.code %></code></pre>
+</div>
+<% } %>
+<% if (!it.newToken) { %><p class="hint">Replace <code>YOUR_TOKEN</code> with a token. Query-string tokens (<code>?token=</code>) also work but can end up in proxy logs; prefer the header.</p><% } %>

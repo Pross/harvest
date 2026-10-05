@@ -1,0 +1,28 @@
+<h1>Ledger <span class="muted">of <a href="/jobs/<%= it.job.id %>"><%= it.job.name %></a></span></h1>
+<p class="muted"><%= it.all %> active <%= it.all === 1 ? "file" : "files" %> in the ledger<% if (it.search) { %>; <%= it.total %> match "<%= it.search %>"<% } %>.
+  Files listed here are skipped by future runs.</p>
+<% if (it.confirm) { %><%~ include("partials/ledger-confirm", it) %><% } %>
+<form method="get" action="/jobs/<%= it.job.id %>/ledger" class="filters">
+  <input type="text" name="q" value="<%= it.search %>" placeholder="Search paths" aria-label="Search paths">
+  <button type="submit">Search</button>
+  <% if (it.search) { %><a href="/jobs/<%= it.job.id %>/ledger">Clear</a><% } %>
+  <a class="btn danger" href="/jobs/<%= it.job.id %>/ledger?confirm=all">Forget everything</a>
+</form>
+<% if (it.rows.length === 0) { %>
+  <p class="muted"><%= it.search ? "No ledger entries match." : "The ledger is empty." %></p>
+<% } else { %>
+<table class="cards"><thead><tr><th>Path</th><th class="num">Size</th><th>Synced</th><th>Remote action</th><th></th></tr></thead><tbody>
+<% for (const r of it.rows) { %>
+  <tr><td data-label="Path" class="path"><code><%= r.path %></code></td>
+    <td data-label="Size" class="num"><%= r.size %></td>
+    <td data-label="Synced"><%~ r.syncedHtml %></td>
+    <td data-label="Remote action"><% if (r.action === "none") { %><span class="muted">none</span><% } else { %><span class="badge ra-<%= r.action %>"<% if (r.action === "skipped") { %> title="The remote file changed after it was synced, so Harvest left it alone."<% } %>><%= r.action %></span> <span class="muted"><%~ r.actionAt %></span><% } %></td>
+    <td><a href="<%= r.forgetUrl %>">Forget file</a><% if (r.unit) { %> &middot; <a href="<%= r.forgetUnitUrl %>">Forget <%= r.unit %></a><% } %></td></tr>
+<% } %>
+</tbody></table>
+<% } %>
+<div class="pagination">
+  <% if (it.prevUrl) { %><a href="<%= it.prevUrl %>">Newer</a><% } %>
+  <span class="muted">Page <%= it.page %> of <%= it.pages %></span>
+  <% if (it.nextUrl) { %><a href="<%= it.nextUrl %>">Older</a><% } %>
+</div>

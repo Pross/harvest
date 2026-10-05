@@ -1,0 +1,11 @@
+<div class="card narrow">
+  <h2>Sign in</h2>
+  <% if (it.error) { %><div class="banner banner-danger" role="alert"><%= it.error %></div><% } %>
+  <form method="post" action="/login" autocomplete="on">
+    <label for="username">Username</label>
+    <input type="text" id="username" name="username" value="<%= it.username %>" autocomplete="username" required autofocus>
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" autocomplete="current-password" required>
+    <p><button type="submit" class="primary">Sign in</button></p>
+  </form>
+</div>

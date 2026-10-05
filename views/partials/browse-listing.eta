@@ -1,0 +1,14 @@
+<div class="browser">
+  <nav class="crumbs" aria-label="Folder path">
+    <a href="<%= it.rootHref %>" hx-get="<%= it.rootHref %>" hx-target="#<%= it.field %>-browser"><%= it.field === "local_path" ? "Roots" : "/" %></a>
+    <% for (const c of it.crumbs) { %> <span class="muted">&rsaquo;</span> <a href="<%= c.href %>" hx-get="<%= c.href %>" hx-target="#<%= it.field %>-browser"><%= c.name %></a><% } %>
+  </nav>
+  <% if (it.error) { %><div class="banner banner-warn" role="alert"><%= it.error %></div><% } %>
+  <% if (it.note) { %><p class="hint"><%= it.note %></p><% } %>
+  <ul class="bare-list">
+    <% for (const e of it.entries) { %><li><a href="<%= e.href %>" hx-get="<%= e.href %>" hx-target="#<%= it.field %>-browser"><code><%= e.name %>/</code></a></li><% } %>
+    <% for (const f of it.files) { %><li class="muted"><code><%= f.name %></code> <span class="hint"><%= f.size %></span></li><% } %>
+  </ul>
+  <% if (it.more) { %><p class="hint"><%= it.more %></p><% } %>
+  <% if (it.pick) { %><button type="button" class="primary" hx-get="<%= it.pick %>" hx-target="#<%= it.field %>-wrap" hx-swap="outerHTML">Use this folder</button><% } %>
+</div>

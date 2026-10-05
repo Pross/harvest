@@ -1,0 +1,12 @@
+<% if (it.lastRuns.length === 0) { %>
+  <p class="muted">No jobs yet.</p>
+<% } else { %>
+<table class="cards"><thead><tr><th>Job</th><th>Last run</th><th>Status</th><th>Result</th></tr></thead><tbody>
+<% for (const j of it.lastRuns) { %>
+  <tr><td data-label="Job"><a href="/jobs/<%= j.jobId %>"><%= j.name %></a><% if (!j.enabled) { %> <span class="badge">disabled</span><% } %></td>
+    <td data-label="Last run"><%~ j.whenHtml %></td>
+    <td data-label="Status"><% if (j.state) { %><a href="/runs/<%= j.runId %>"><span class="badge st-<%= j.state %>"><%= j.state %></span></a><% } else { %><span class="muted">no runs</span><% } %></td>
+    <td data-label="Result" class="muted"><%= j.summary %></td></tr>
+<% } %>
+</tbody></table>
+<% } %>

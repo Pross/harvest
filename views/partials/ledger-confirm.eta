@@ -1,0 +1,21 @@
+<div class="banner banner-warn" role="alert" id="ledger-confirm">
+<% if (it.confirm.kind === "all") { %>
+  <p><strong>Forget everything for <%= it.job.name %>?</strong> All <%= it.confirm.count %> ledger entries will be forgotten. Every file still on the remote will be downloaded again on the next run. Files already on disk are not deleted.</p>
+  <form method="post" action="/jobs/<%= it.job.id %>/ledger/forget-all">
+    <%~ it.csrfField %>
+    <label for="confirm-name">Type the job name (<code><%= it.job.name %></code>) to confirm</label>
+    <input type="text" id="confirm-name" name="name" autocomplete="off" required>
+    <% if (it.errors.name) { %><div class="field-error"><%= it.errors.name %></div><% } %>
+    <p><button type="submit" class="danger">Forget all files</button> <a href="/jobs/<%= it.job.id %>/ledger">Cancel</a></p>
+  </form>
+<% } else { %>
+  <p><strong>Forget <%= it.confirm.kind === "unit" ? "the unit" : "the file" %> <code><%= it.confirm.target %></code>?</strong>
+    <%= it.confirm.count %> <%= it.confirm.count === 1 ? "file" : "files" %> will be removed from the ledger. The file will be downloaded again on the next run if it is still on the remote. Files already on disk are not deleted.</p>
+  <form method="post" action="/jobs/<%= it.job.id %>/ledger/<%= it.confirm.kind === 'unit' ? 'forget-unit' : 'forget' %>">
+    <%~ it.csrfField %>
+    <input type="hidden" name="path" value="<%= it.confirm.kind === 'unit' ? it.confirm.path : it.confirm.target %>">
+    <input type="hidden" name="confirmed" value="yes">
+    <p><button type="submit" class="danger">Forget</button> <a href="/jobs/<%= it.job.id %>/ledger">Cancel</a></p>
+  </form>
+<% } %>
+</div>

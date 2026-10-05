@@ -1,0 +1,4 @@
+<% if (it.ok) { %>
+<span class="preview-ok"><%= it.human %></span>
+<% if (it.next.length > 0) { %> Next runs: <% for (const n of it.next) { %><span class="badge"><%~ n %></span> <% } %><% } %>
+<% } else { %><span class="field-error"><%= it.error %></span><% } %>

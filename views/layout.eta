@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title><%= it.title && it.title !== it.appName ? it.title + " - " + it.appName : it.appName %></title>
+<script src="/static/vendor/htmx.min.js" defer></script>
+<script src="/static/vendor/sse.min.js" defer></script>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0f1115; --panel: #161922; --fg: #d7dae0; --muted: #7b8190;
+    --line: #262b36; --line-soft: #1e222c; --hover: #1b1f29;
+    --accent: #5ec99a; --warn: #e0a13c; --danger: #e0686b; --info: #6fa8dc;
+    --accent-bd: #2c4a3c; --warn-bd: #4a3c1f; --danger-bd: #4a2c2e; --info-bd: #2b3f55;
+    --accent-bg: rgba(94,201,154,0.12);
+    --mono: "SF Mono", ui-monospace, "JetBrains Mono", "IBM Plex Mono", Menlo, Consolas, monospace;
+    font-family: var(--mono);
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --bg: #f5f6f8; --panel: #ffffff; --fg: #1c2029; --muted: #667085;
+      --line: #d8dce4; --line-soft: #eceff4; --hover: #f0f2f6;
+      --accent: #1f8a5b; --warn: #a86b00; --danger: #c0392b; --info: #2a6aa8;
+      --accent-bd: #a9d8c2; --warn-bd: #e6cf9c; --danger-bd: #e8b4ae; --info-bd: #b4cfe8;
+      --accent-bg: rgba(31,138,91,0.10);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { max-width: 1100px; margin: 0 auto; padding: 1rem; background: var(--bg); color: var(--fg); font-size: 13px; line-height: 1.55; }
+  h1, h2, h3 { margin: 0.4rem 0; font-weight: 600; letter-spacing: 0.02em; }
+  h1 { font-size: 1.05rem; } h2 { font-size: 0.95rem; } h3 { font-size: 0.9rem; }
+  .muted { color: var(--muted); }
+  code { font-family: var(--mono); font-size: 0.92em; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  button, .btn { font: inherit; padding: 0.3rem 0.7rem; cursor: pointer; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; display: inline-block; }
+  button:hover, .btn:hover { border-color: var(--muted); text-decoration: none; }
+  button.primary { color: var(--accent); border-color: var(--accent-bd); background: var(--accent-bg); }
+  button.danger { color: var(--danger); border-color: var(--danger-bd); }
+  .link-btn { background: none; border: none; padding: 0; color: var(--accent); }
+  input[type=text], input[type=password], input[type=number], input[type=url], select, textarea {
+    font: inherit; width: 100%; padding: 0.35rem 0.5rem; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; }
+  input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  label { display: block; font-size: 0.85rem; margin: 0.7rem 0 0.2rem; }
+  .field-error { color: var(--danger); font-size: 0.8rem; margin-top: 0.2rem; }
+  .hint { color: var(--muted); font-size: 0.8rem; }
+
+  header.top { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 0.6rem; margin-bottom: 1rem; }
+  header.top h1 a { color: inherit; }
+  nav.main { display: flex; gap: 0.3rem; flex-wrap: wrap; flex: 1; }
+  nav.main a { padding: 0.2rem 0.65rem; border: 1px solid transparent; border-radius: 4px; color: var(--fg); }
+  nav.main a:hover { border-color: var(--line); text-decoration: none; }
+  nav.main a.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-bd); }
+  .userbox { display: flex; gap: 0.6rem; align-items: center; color: var(--muted); }
+  .userbox form { margin: 0; }
+
+  .banner { padding: 0.55rem 0.8rem; border-radius: 5px; margin: 0.5rem 0; border: 1px solid var(--line); background: var(--panel); }
+  .banner-warn { color: var(--warn); border-color: var(--warn-bd); }
+  .banner-danger { color: var(--danger); border-color: var(--danger-bd); }
+  .banner-ok { color: var(--accent); border-color: var(--accent-bd); }
+  .banner-info { color: var(--info); border-color: var(--info-bd); }
+
+  section.panel { margin: 1.2rem 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 0.8rem 1rem; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .narrow { max-width: 420px; margin: 3rem auto; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+  th { text-align: left; padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--line); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  td { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  tbody tr:hover { background: var(--hover); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .badge { display: inline-block; padding: 0.05rem 0.45rem; border-radius: 3px; font-size: 0.72rem; font-weight: 600; border: 1px solid var(--line); background: var(--panel); color: var(--muted); }
+  .st-succeeded { color: var(--accent); border-color: var(--accent-bd); }
+  .st-partial, .st-skipped_locked, .st-skipped_space, .st-awaiting_space { color: var(--warn); border-color: var(--warn-bd); }
+  .st-failed { color: var(--danger); border-color: var(--danger-bd); }
+  .st-cancelled { color: var(--muted); }
+  .st-active { color: var(--info); border-color: var(--info-bd); }
+
+  .bar { height: 8px; background: var(--line-soft); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; background: var(--accent); }
+  .bar.small { height: 5px; }
+  .transfer { padding: 0.6rem 0; border-bottom: 1px solid var(--line-soft); }
+  .transfer:last-child { border-bottom: 0; }
+  .transfer .meta { display: flex; gap: 0.9rem; flex-wrap: wrap; color: var(--muted); font-size: 0.85rem; margin-top: 0.25rem; }
+  .files { margin: 0.4rem 0 0 0.6rem; font-size: 0.82rem; }
+  .files .path { overflow-wrap: anywhere; }
+  svg.spark { fill: var(--accent); display: block; }
+  .spark-labels { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.72rem; }
+  .pagination { margin-top: 0.7rem; display: flex; gap: 0.7rem; align-items: center; }
+
+  .filters { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin: 0.6rem 0; }
+  .filters input[type=text], .filters select { width: auto; min-width: 11rem; }
+  .st-pending, .ra-pending { color: var(--warn); border-color: var(--warn-bd); }
+  .ra-failed { color: var(--danger); border-color: var(--danger-bd); }
+  .ra-skipped { color: var(--muted); }
+  .ra-done { color: var(--accent); border-color: var(--accent-bd); }
+  td.path code, .act-summary { overflow-wrap: anywhere; }
+  ul.timeline { list-style: none; padding: 0; margin: 0.3rem 0; font-size: 0.85rem; }
+  ul.timeline li { padding: 0.15rem 0; border-bottom: 1px solid var(--line-soft); }
+  .act-row { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line-soft); border-left: 3px solid transparent; }
+  .act-row.sev-warn { border-left-color: var(--warn); }
+  .act-row.sev-error { border-left-color: var(--danger); }
+  .act-head { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: baseline; font-size: 0.82rem; }
+  .act-cat { color: var(--muted); }
+  .act-badge-info { color: var(--info); border-color: var(--info-bd); }
+  .act-badge-warn { color: var(--warn); border-color: var(--warn-bd); }
+  .act-badge-error { color: var(--danger); border-color: var(--danger-bd); }
+  span.sev-error { color: var(--danger); } span.sev-warn { color: var(--warn); }
+  .act-meta dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.1rem 0.8rem; margin: 0.3rem 0 0; font-size: 0.82rem; }
+  .act-meta dt { color: var(--muted); } .act-meta dd { margin: 0; overflow-wrap: anywhere; }
+
+  .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+  .actions form, td.actions form { margin: 0; display: inline; }
+  label.check { display: flex; gap: 0.5rem; align-items: center; }
+  label.check input { width: auto; }
+  .pathrow { display: flex; gap: 0.5rem; align-items: flex-start; }
+  .pathrow > div:first-child { flex: 1; }
+  .browser { border: 1px solid var(--line); border-radius: 4px; padding: 0.5rem 0.7rem; margin: 0.4rem 0; background: var(--panel); }
+  .crumbs { margin-bottom: 0.3rem; overflow-wrap: anywhere; }
+  ul.bare-list { list-style: none; margin: 0.3rem 0; padding: 0; }
+  code.fp { overflow-wrap: anywhere; }
+  .test-result { margin-top: 0.8rem; }
+  .preview-ok { color: var(--accent); }
+  tr.result-row td { padding: 0; border: 0; }
+
+  @media (max-width: 700px) {
+    body { padding: 0.7rem; }
+    .grid-2 { grid-template-columns: 1fr; }
+    table.cards thead { display: none; }
+    table.cards, table.cards tbody, table.cards tr, table.cards td { display: block; width: 100%; }
+    table.cards tr { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 0.4rem 0.7rem; margin-bottom: 0.6rem; }
+    table.cards td { border: 0; padding: 0.15rem 0; text-align: left; }
+    table.cards td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); font-size: 0.78rem; }
+    .narrow { margin: 1rem auto; }
+  }
+</style>
+</head>
+<body hx-headers="<%= it.hxHeaders %>">
+<header class="top">
+  <h1><a href="/"><%= it.appName %></a></h1>
+  <% if (it.user || it.authMode === "none") { %>
+  <nav class="main" aria-label="Main">
+    <% for (const [key, label, href] of [["dashboard","Dashboard","/"],["hosts","Hosts","/hosts"],["jobs","Jobs","/jobs"],["arr","Sonarr/Radarr","/arr-targets"],["channels","Notifications","/channels"],["runs","Runs","/runs"],["activity","Activity","/activity"],["settings","Settings","/settings"]]) { %>
+      <a href="<%= href %>"<% if (it.nav === key) { %> class="active" aria-current="page"<% } %>><%= label %></a>
+    <% } %>
+  </nav>
+  <% } else { %><span class="muted" style="flex:1"></span><% } %>
+  <% if (it.user) { %>
+  <div class="userbox"><span><%= it.user.username %></span>
+    <form method="post" action="/logout"><%~ it.csrfField %><button type="submit" class="link-btn">Sign out</button></form>
+  </div>
+  <% } %>
+</header>
+<% if (it.authMode === "none") { %>
+<div class="banner banner-warn" role="alert"><strong>Authentication is disabled</strong> (<code>AUTH_MODE=none</code>). Anyone who can reach this port can control Harvest and read its settings. Only use this behind a trusted reverse proxy or on a private network.<% if (it.hostsUnrestricted) { %> Also set <code>ALLOWED_HOSTS</code> (the host names you use to open Harvest) and <code>PUBLIC_URL</code>: without them a DNS rebinding attack from a web page can reach Harvest.<% } %></div>
+<% } %>
+<% if (it.secretBanner) { %>
+<div class="banner banner-warn" role="alert">No <code>APP_SECRET</code> was provided, so one was generated. Saved host credentials can only be decrypted with that generated secret: set <code>APP_SECRET</code> explicitly to keep them safe across restarts and migrations.</div>
+<% } %>
+<% if (it.flash) { %>
+<div class="banner banner-<%= it.flash.kind %>" role="status"><%= it.flash.message %></div>
+<% } %>
+<main>
+<%~ it.body %>
+</main>
+</body>
+</html>

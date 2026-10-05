@@ -1,0 +1,23 @@
+<% const bw = it.bw; %>
+<h3>Time-of-day profiles</h3>
+<p>Currently effective global rate: <strong id="bw-effective"><%= bw.effective %></strong></p>
+<div class="hint">The first matching profile wins; otherwise the global limit above applies. Times are 24-hour, in the server's timezone
+  (set the <code>TZ</code> environment variable, for example <code>TZ=Europe/London</code>; the default is UTC). An end time earlier than the start
+  wraps past midnight, and its after-midnight part belongs to the next day. A blank rate means unlimited. A job's own limit still applies on top:
+  each stream is held to the lower of the two.</div>
+<% if (bw.listError) { %><div class="field-error"><%= bw.listError %></div><% } %>
+<table class="cards"><thead><tr><th>Days</th><th>From</th><th>To</th><th>Rate (B/s)</th><th>Remove</th></tr></thead><tbody>
+<% for (const r of bw.rows) { %>
+  <tr>
+    <td data-label="Days">
+      <% bw.dayNames.forEach((name, d) => { %><label class="inline"><input type="checkbox" name="bp<%= r.i %>_days" value="<%= d %>"<% if (r.days.includes(d)) { %> checked<% } %>> <%= name %></label> <% }) %>
+    </td>
+    <td data-label="From"><input type="time" name="bp<%= r.i %>_from" value="<%= r.from %>" aria-label="From, row <%= r.i + 1 %>"></td>
+    <td data-label="To"><input type="time" name="bp<%= r.i %>_to" value="<%= r.to %>" aria-label="To, row <%= r.i + 1 %>"></td>
+    <td data-label="Rate"><input type="text" name="bp<%= r.i %>_rate" value="<%= r.rate %>" placeholder="unlimited" size="8" autocomplete="off" aria-label="Rate, row <%= r.i + 1 %>"></td>
+    <td data-label="Remove"><input type="checkbox" name="bp<%= r.i %>_remove" value="1" aria-label="Remove row <%= r.i + 1 %>"></td>
+  </tr>
+  <% if (r.error) { %><tr><td colspan="5"><div class="field-error">Row <%= r.i + 1 %>: <%= r.error %></div></td></tr><% } %>
+<% } %>
+</tbody></table>
+<div class="hint">Leave a row empty to ignore it. Save to get more blank rows (up to 20 profiles).</div>

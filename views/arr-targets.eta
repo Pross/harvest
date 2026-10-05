@@ -1,0 +1,21 @@
+<section class="panel">
+  <div class="toolbar"><h2>Sonarr / Radarr</h2><a class="btn primary" href="/arr-targets/new">Add target</a></div>
+  <p class="hint">After each downloaded unit Harvest asks the target to scan the finished folder. Addresses are entered by an administrator and may point at private or LAN hosts (for example http://sonarr:8989). Redirects are never followed. API keys are stored encrypted and never shown again.</p>
+  <% if (it.targets.length === 0) { %>
+  <p class="muted">No targets yet.</p>
+  <% } else { %>
+  <table class="cards"><thead><tr><th>Name</th><th>Kind</th><th>URL</th><th class="num">Jobs</th><th></th></tr></thead><tbody>
+  <% for (const t of it.targets) { %>
+    <tr><td data-label="Name"><a href="/arr-targets/<%= t.id %>"><%= t.name %></a></td>
+      <td data-label="Kind"><span class="badge"><%= t.kind %></span></td>
+      <td data-label="URL"><code><%= t.url %></code></td>
+      <td data-label="Jobs" class="num"><%= t.jobCount %></td>
+      <td class="actions">
+        <form method="post" action="/arr-targets/<%= t.id %>/test"><%~ it.csrfField %><button type="submit" hx-post="/arr-targets/<%= t.id %>/test" hx-target="#test-<%= t.id %>">Test</button></form>
+        <form method="post" action="/arr-targets/<%= t.id %>/delete"><%~ it.csrfField %><button type="submit" class="danger" hx-confirm="Delete target <%= t.name %>?<%= t.jobCount > 0 ? ' It is used by ' + t.jobCount + ' job(s); they will stop notifying it.' : '' %>">Delete</button></form>
+      </td></tr>
+    <tr class="result-row"><td colspan="5"><div id="test-<%= t.id %>" aria-live="polite"></div></td></tr>
+  <% } %>
+  </tbody></table>
+  <% } %>
+</section>

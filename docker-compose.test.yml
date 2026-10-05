@@ -1,0 +1,43 @@
+# Harvest integration test rig. Throwaway credentials only (testuser/testpass, vuser/testpass, keyuser + key).
+#
+# How to run:
+#   npm run test:integration        # brings the stack up, runs tests/integration/**, tears it down (down -v)
+# Manual:
+#   docker compose -f docker-compose.test.yml up -d --build
+#   docker compose -f docker-compose.test.yml down -v
+#
+# Ports (127.0.0.1 only):  FTP 2121 (passive 30000-30099)   FTPS explicit 2122 (passive 30100-30199)
+#                          FTPS implicit 2990 (passive 31000-31099)   SFTP 2222 (testuser/testpass, keyuser + key)
+# Shared volumes: ftpdata (/srv/ftp for all three FTP servers), sftpdata (/home/<user>/data).
+# Quirks: pure-ftpd has no implicit TLS and cannot enforce session reuse; vsftpd segfaults after a
+# session so it runs in a restart loop (about 0.3 s gap where connects are refused).
+name: harvest-it
+services:
+  ftp:
+    build: {context: tests/integration/docker, dockerfile: Dockerfile.pureftpd}
+    image: harvest-it-pureftpd
+    environment: {PASV_RANGE: "30000:30099", FLAGS: ""}
+    cap_add: [SYS_CHROOT, SETUID, SETGID, CHOWN, DAC_READ_SEARCH, FOWNER, NET_BIND_SERVICE, SYS_NICE, AUDIT_WRITE]
+    ports: ["127.0.0.1:2121:21", "127.0.0.1:30000-30099:30000-30099"]
+    volumes: [ftpdata:/srv/ftp]
+  ftps-explicit:
+    image: harvest-it-pureftpd
+    environment: {PASV_RANGE: "30100:30199", FLAGS: "--tls=1"}
+    cap_add: [SYS_CHROOT, SETUID, SETGID, CHOWN, DAC_READ_SEARCH, FOWNER, NET_BIND_SERVICE, SYS_NICE, AUDIT_WRITE]
+    ports: ["127.0.0.1:2122:21", "127.0.0.1:30100-30199:30100-30199"]
+    volumes: [ftpdata:/srv/ftp]
+    depends_on: [ftp]
+  ftps-implicit:
+    build: {context: tests/integration/docker, dockerfile: Dockerfile.vsftpd}
+    image: harvest-it-vsftpd
+    ports: ["127.0.0.1:2990:990", "127.0.0.1:31000-31099:31000-31099"]
+    volumes: [ftpdata:/srv/ftp]
+  sftp:
+    image: atmoz/sftp
+    command: ["testuser:testpass:1001::data", "keyuser::1002::data"]
+    ports: ["127.0.0.1:2222:22"]
+    volumes:
+      - sftpdata:/home/testuser/data
+      - sftpdata:/home/keyuser/data
+      - ./tests/integration/docker/keys/id_test.pub:/home/keyuser/.ssh/keys/id_test.pub:ro
+volumes: {ftpdata: {}, sftpdata: {}}

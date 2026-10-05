@@ -1,0 +1,2 @@
+<div id="<%= it.field %>-wrap"><input type="text" id="<%= it.field %>" name="<%= it.field %>" value="<%= it.value %>" required autocomplete="off"></div>
+<% if (it.swapOob) { %><div id="<%= it.field %>-browser" hx-swap-oob="true"></div><% } %>

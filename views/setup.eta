@@ -1,0 +1,17 @@
+<div class="card narrow">
+  <h2>Create the first user</h2>
+  <p class="hint">This page is only available once, until the first user exists.</p>
+  <form method="post" action="/setup">
+    <input type="hidden" name="token" value="<%= it.token %>">
+    <label for="username">Username</label>
+    <input type="text" id="username" name="username" value="<%= it.username %>" autocomplete="username" required>
+    <% if (it.errors.username) { %><div class="field-error"><%= it.errors.username %></div><% } %>
+    <label for="password">Password (8+ characters)</label>
+    <input type="password" id="password" name="password" autocomplete="new-password" required minlength="8">
+    <% if (it.errors.password) { %><div class="field-error"><%= it.errors.password %></div><% } %>
+    <label for="confirm">Confirm password</label>
+    <input type="password" id="confirm" name="confirm" autocomplete="new-password" required>
+    <% if (it.errors.confirm) { %><div class="field-error"><%= it.errors.confirm %></div><% } %>
+    <p><button type="submit" class="primary">Create user</button></p>
+  </form>
+</div>

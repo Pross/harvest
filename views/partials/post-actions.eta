@@ -1,0 +1,24 @@
+<h2>Post-actions</h2>
+<p class="hint">Steps that run on files after download. Extraction happens inside the staging folder before the files are moved into place, so media managers never see unextracted archives. A failing step never fails the run: the run is marked partial and the problem is listed in the activity log.</p>
+<form method="post" action="/jobs/<%= it.job.id %>/post-actions" class="card" hx-post="/jobs/<%= it.job.id %>/post-actions" hx-target="#post-actions" hx-swap="innerHTML">
+  <%~ it.csrfField %>
+  <% if (it.saved) { %><div class="banner banner-ok" role="status">Saved.</div><% } %>
+  <label for="extract">Archives (.zip, .7z, .rar)</label>
+  <select id="extract" name="extract">
+    <% for (const [val, label] of [["off", "Leave archives alone"], ["keep", "Extract and keep the archives"], ["delete", "Extract, then delete the archives"]]) { %>
+    <option value="<%= val %>"<% if (it.values.extract === val) { %> selected<% } %>><%= label %></option>
+    <% } %>
+  </select>
+  <% if (it.errors.extract) { %><div class="field-error"><%= it.errors.extract %></div><% } %>
+  <div class="hint">Archives are removed only after a successful extraction. If extraction fails or is skipped with a warning, the archives stay in place and the remote after-sync action (delete, move, delete after N days) is not applied to that unit. Multi-part RAR sets are extracted from the first part. RAR needs the <code>unar</code> tool in the image.</div>
+
+  <label for="chmod_file">File mode (octal)</label>
+  <input type="text" id="chmod_file" name="chmod_file" value="<%= it.values.chmod_file %>" maxlength="4" inputmode="numeric" pattern="(0[0-7]{3}|[0-7]{3})" placeholder="644" autocomplete="off">
+  <% if (it.errors.chmod_file) { %><div class="field-error"><%= it.errors.chmod_file %></div><% } %>
+
+  <label for="chmod_dir">Directory mode (octal)</label>
+  <input type="text" id="chmod_dir" name="chmod_dir" value="<%= it.values.chmod_dir %>" maxlength="4" inputmode="numeric" pattern="(0[0-7]{3}|[0-7]{3})" placeholder="755" autocomplete="off">
+  <% if (it.errors.chmod_dir) { %><div class="field-error"><%= it.errors.chmod_dir %></div><% } %>
+  <div class="hint">Leave empty to keep the default (UMASK). Files need at least owner read and write (600), directories at least 700; setuid, setgid and sticky bits are not allowed. Applied after the files are in place, to the new files and the folders above them inside the local path. Symbolic links are skipped.</div>
+  <p class="actions"><button type="submit" class="primary">Save post-actions</button></p>
+</form>

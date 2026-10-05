@@ -1,0 +1,33 @@
+<% const d = it.dryRun; %>
+<section class="panel">
+  <h2>Dry run plan</h2>
+  <div class="card">
+    <p>A real run would download <strong><%= d.plannedCount %></strong> file(s), <strong><%= d.plannedBytes %></strong>
+      in <%= d.unitCount %> unit(s). Nothing was downloaded, and no settle clock, observation or ledger entry was written.</p>
+    <% if (d.deletes) { %><p>This job deletes remote files after a verified copy: <strong><%= d.wouldDeleteCount %></strong> remote file(s) would be deleted.</p><% } %>
+  </div>
+  <h3>Would download</h3>
+  <% if (d.units.length === 0) { %><p class="muted">Nothing to download.</p><% } %>
+  <% for (const u of d.units) { %>
+  <details class="card" open>
+    <summary><code><%= u.key || "(no unit)" %></code> <span class="muted"><%= u.count %> file(s), <%= u.totalText %></span></summary>
+    <table class="cards"><thead><tr><th>Path</th><th class="num">Size</th></tr></thead><tbody>
+    <% for (const f of u.files) { %><tr><td data-label="Path" class="path"><code><%= f.path %></code></td><td data-label="Size" class="num"><%= f.size %></td></tr><% } %>
+    </tbody></table>
+  </details>
+  <% } %>
+  <% if (d.hiddenPlanned > 0) { %><p class="muted">Showing first <%= d.shownPlanned %> of <%= d.plannedCount %> file(s); <%= d.hiddenPlanned %> more are not listed.</p><% } %>
+  <% if (d.deletes && d.wouldDelete.length > 0) { %>
+  <h3>Would delete from the remote after verified copy</h3>
+  <ul class="timeline"><% for (const p of d.wouldDelete) { %><li><code><%= p %></code></li><% } %></ul>
+  <% } %>
+  <h3>Would skip</h3>
+  <% if (d.skips.length === 0) { %><p class="muted">Nothing skipped.</p><% } %>
+  <% for (const g of d.skips) { %>
+  <details class="card">
+    <summary><%= g.label %> <span class="muted"><%= g.count %> file(s)</span></summary>
+    <ul class="timeline"><% for (const f of g.shown) { %><li><code><%= f.path %></code><% if (f.detail) { %> <span class="muted"><%= f.detail %></span><% } %></li><% } %></ul>
+    <% if (g.count > g.shown.length) { %><p class="muted">Showing first <%= g.shown.length %> of <%= g.count %>; <%= g.count - g.shown.length %> more not listed.</p><% } %>
+  </details>
+  <% } %>
+</section>

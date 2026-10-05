@@ -1,0 +1,31 @@
+<section class="panel">
+  <h2><%= it.channel ? "Edit channel" : "New channel" %> <span class="badge"><%= it.kind %></span></h2>
+  <% if (it.unreadable) { %><div class="banner banner-warn" role="alert"><%= it.unreadableMessage %></div><% } %>
+  <form method="post" action="<%= it.action %><%= it.channel ? '' : '?kind=' + it.kind %>" class="card">
+    <%~ it.csrfField %>
+    <label for="name">Name</label>
+    <input type="text" id="name" name="name" value="<%= it.name %>" required maxlength="80">
+    <% if (it.errors.name) { %><div class="field-error"><%= it.errors.name %></div><% } %>
+    <% for (const f of it.fields) { %>
+    <label for="cfg_<%= f.key %>"><%= f.label %><%= f.required ? "" : " (optional)" %></label>
+    <input type="<%= f.secret ? 'password' : 'text' %>" id="cfg_<%= f.key %>" name="cfg_<%= f.key %>" autocomplete="off"<% if (!f.secret) { %> value="<%= it.values[f.key] || '' %>"<% } else { %> placeholder="<%= it.channel && !it.unreadable ? 'unchanged' : '' %>"<% } %>>
+    <% if (it.errors['cfg_' + f.key]) { %><div class="field-error"><%= it.errors['cfg_' + f.key] %></div><% } %>
+    <% if (f.hint) { %><div class="hint"><%= f.hint %></div><% } %>
+    <% } %>
+    <div class="hint">Secret fields are stored encrypted and never shown again. Leave them blank to keep the stored value. URLs must be http or https; private addresses are allowed.</div>
+    <label class="check"><input type="checkbox" name="enabled" value="on"<% if (it.enabled) { %> checked<% } %>> Enabled</label>
+    <p class="actions"><button type="submit" class="primary">Save channel</button><a href="/channels">Cancel</a></p>
+  </form>
+  <% if (it.channel) { %>
+  <div class="card">
+    <h3>Send test</h3>
+    <form method="post" action="/channels/<%= it.channel.id %>/test"><%~ it.csrfField %><button type="submit" hx-post="/channels/<%= it.channel.id %>/test" hx-target="#test-result">Send test notification</button></form>
+    <div id="test-result" aria-live="polite"></div>
+  </div>
+  <div class="card">
+    <h3>Delete channel</h3>
+    <% if (it.usedBy.length > 0) { %><p class="muted">Used by: <%= it.usedBy.join(", ") %>. Deleting removes it from those jobs.</p><% } %>
+    <form method="post" action="/channels/<%= it.channel.id %>/delete"><%~ it.csrfField %><button type="submit" class="danger" hx-confirm="Delete this channel?">Delete channel</button></form>
+  </div>
+  <% } %>
+</section>

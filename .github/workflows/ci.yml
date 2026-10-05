@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  RCLONE_VERSION: v1.75.1
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install archive tools for the real 7-Zip/unar tests
+        run: sudo apt-get update && sudo apt-get install -y 7zip unar
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run check:limits
+      - run: npm test
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install pinned rclone
+        run: |
+          set -e
+          base="https://downloads.rclone.org/${RCLONE_VERSION}"
+          zip="rclone-${RCLONE_VERSION}-linux-amd64.zip"
+          curl -fsSLO "$base/$zip"
+          curl -fsSL "$base/SHA256SUMS" -o SHA256SUMS
+          grep " $zip\$" SHA256SUMS | sha256sum -c -
+          unzip -q "$zip"
+          sudo install -m 0755 "rclone-${RCLONE_VERSION}-linux-amd64/rclone" /usr/local/bin/rclone
+          rclone version | head -1
+          echo "RCLONE_BIN=/usr/local/bin/rclone" >> "$GITHUB_ENV"
+      - run: npm ci
+      - run: npm run test:integration
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - name: Build image (no push)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

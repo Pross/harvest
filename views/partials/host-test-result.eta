@@ -1,0 +1,37 @@
+<% const r = it.result; %>
+<div class="card test-result">
+<% if (!r.ok) { %>
+  <div class="banner banner-<%= r.kind === 'hostkey' ? 'danger' : 'warn' %>" role="alert"><%= r.message %></div>
+<% } else { %>
+  <div class="banner banner-ok" role="status">Connected. Remote root listing<% if (r.listing.length === 0) { %>: empty<% } %>:</div>
+  <% if (r.listing.length > 0) { %>
+  <ul class="bare-list"><% for (const e of r.listing) { %><li><code><%= e.isDir ? "[dir]" : "[file]" %> <%= e.name %></code></li><% } %></ul>
+  <% if (r.more > 0) { %><p class="muted">... and <%= r.more %> more</p><% } %>
+  <% } %>
+  <% if (r.keyState !== "none") { %>
+  <h3>Scanned host keys</h3>
+  <ul class="bare-list"><% for (const k of r.keys) { %><li><span class="badge"><%= k.type %></span> <code class="fp"><%= k.sha256 %></code></li><% } %></ul>
+  <% if (r.keyState === "same") { %>
+    <div class="banner banner-ok">These keys match the pinned key.</div>
+  <% } else if (r.hostId > 0) { %>
+    <% if (r.keyState === "changed") { %>
+    <div class="banner banner-danger" role="alert"><strong>The server's host key is DIFFERENT from the pinned key.</strong> This can mean the server was reinstalled, or that someone is intercepting the connection. Pinned: <code class="fp"><%= r.pinnedLines.join(", ") %></code>. Nothing was changed.</div>
+    <% } else { %>
+    <div class="banner banner-warn">This scan was unauthenticated: trust on first use. Only pin these keys if the fingerprints match what your provider shows you.</div>
+    <% } %>
+    <form method="post" action="/hosts/<%= r.hostId %>/pin">
+      <%~ it.csrfField %>
+      <% for (const f of r.fingerprints) { %><input type="hidden" name="fingerprint" value="<%= f %>"><% } %>
+      <% if (r.keyState === "changed") { %>
+      <label class="check"><input type="checkbox" name="confirm_replace" value="1" required> I verified the new fingerprints and want to replace the pinned key</label>
+      <button type="submit" class="danger">Replace pinned key</button>
+      <% } else { %>
+      <button type="submit" class="primary">Pin this key</button>
+      <% } %>
+    </form>
+  <% } else { %>
+    <p class="hint">Save the host first, then test it again to pin its key.</p>
+  <% } %>
+  <% } %>
+<% } %>
+</div>

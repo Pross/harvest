@@ -1,0 +1,4 @@
+<section class="panel" id="post-actions">
+  <p><a href="/jobs/<%= it.job.id %>">Back to <%= it.job.name %></a></p>
+  <%~ include("partials/post-actions", it) %>
+</section>

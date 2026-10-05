@@ -1,0 +1,81 @@
+<section class="panel">
+  <h2><%= it.host ? "Edit host" : "New host" %></h2>
+  <% if (it.undecryptable) { %><div class="banner banner-warn" role="alert"><%= it.undecryptableMessage %> Enter the password or key below and save.</div><% } %>
+  <form method="post" action="<%= it.action %>" class="card">
+    <%~ it.csrfField %>
+    <% if (it.host) { %><input type="hidden" name="id" value="<%= it.host.id %>"><% } %>
+    <label for="name">Name</label>
+    <input type="text" id="name" name="name" value="<%= it.values.name %>" required maxlength="80">
+    <% if (it.errors.name) { %><div class="field-error"><%= it.errors.name %></div><% } %>
+
+    <div class="grid-2">
+      <div>
+        <label for="protocol">Protocol</label>
+        <select id="protocol" name="protocol">
+          <% for (const p of it.protocols) { %><option value="<%= p.value %>"<% if (p.disabled) { %> disabled class="muted"<% } %><% if (it.values.protocol === p.value) { %> selected<% } %>><%= p.label %></option><% } %>
+        </select>
+        <% if (it.errors.protocol) { %><div class="field-error"><%= it.errors.protocol %></div><% } %>
+        <div class="hint">Default ports: ftp 21, ftps_explicit 21, ftps_implicit 990, sftp 22. Leave the port blank to use the default.</div>
+      </div>
+      <div>
+        <label for="port">Port</label>
+        <input type="number" id="port" name="port" value="<%= it.values.port %>" min="1" max="65535">
+        <% if (it.errors.port) { %><div class="field-error"><%= it.errors.port %></div><% } %>
+      </div>
+    </div>
+
+    <label for="host">Host</label>
+    <input type="text" id="host" name="host" value="<%= it.values.host %>" required placeholder="seedbox.example.com">
+    <% if (it.errors.host) { %><div class="field-error"><%= it.errors.host %></div><% } %>
+
+    <label for="username">Username</label>
+    <input type="text" id="username" name="username" value="<%= it.values.username %>" required autocomplete="off">
+    <% if (it.errors.username) { %><div class="field-error"><%= it.errors.username %></div><% } %>
+
+    <label for="auth_kind">Authentication</label>
+    <select id="auth_kind" name="auth_kind">
+      <option value="password"<% if (it.values.auth_kind !== "key") { %> selected<% } %>>Password</option>
+      <option value="key"<% if (it.values.auth_kind === "key") { %> selected<% } %>>Private key (SFTP only)</option>
+    </select>
+    <% if (it.errors.auth_kind) { %><div class="field-error"><%= it.errors.auth_kind %></div><% } %>
+
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" autocomplete="new-password" placeholder="<%= it.host && it.host.hasSecret && !it.undecryptable ? 'unchanged' : '' %>">
+    <% if (it.errors.password) { %><div class="field-error"><%= it.errors.password %></div><% } %>
+    <label for="private_key">Private key (PEM, SFTP key authentication)</label>
+    <textarea id="private_key" name="private_key" rows="4" autocomplete="off" spellcheck="false" placeholder="<%= it.host && it.host.hasSecret && it.host.authKind === 'key' ? 'unchanged' : '-----BEGIN OPENSSH PRIVATE KEY-----' %>"></textarea>
+    <% if (it.errors.private_key) { %><div class="field-error"><%= it.errors.private_key %></div><% } %>
+    <label for="key_passphrase">Key passphrase (optional)</label>
+    <input type="password" id="key_passphrase" name="key_passphrase" autocomplete="new-password" placeholder="<%= it.host && it.host.hasSecret && it.host.authKind === 'key' ? 'unchanged' : '' %>">
+    <div class="hint">Secrets are stored encrypted and never shown again. Leave a field blank to keep the stored value<%= it.host && it.host.hasSecret ? " (currently: unchanged)" : "" %>.</div>
+
+    <label class="check"><input type="checkbox" name="tls_accept_self_signed" value="on"<% if (it.values.tls_accept_self_signed === "on") { %> checked<% } %>> Accept self-signed TLS certificates (FTPS)</label>
+    <div class="banner banner-warn">rclone cannot pin a certificate: this trusts any certificate, so a man-in-the-middle could read the traffic and your credentials. Only enable it for servers you control on a trusted network.</div>
+
+    <label for="max_connections">Max connections (1-32)</label>
+    <input type="number" id="max_connections" name="max_connections" value="<%= it.values.max_connections %>" min="1" max="32">
+    <% if (it.errors.max_connections) { %><div class="field-error"><%= it.errors.max_connections %></div><% } %>
+    <div class="hint">Cap on simultaneous connections (files times streams) to this server. Seedboxes often allow only a few.</div>
+
+    <p class="actions">
+      <button type="submit" class="primary">Save host</button>
+      <button type="submit" formaction="/hosts/test" hx-post="/hosts/test" hx-target="#test-result" hx-include="closest form">Test connection</button>
+      <a href="/hosts">Cancel</a>
+    </p>
+  </form>
+  <div id="test-result" aria-live="polite"></div>
+
+  <% if (it.host) { %>
+  <div class="card">
+    <h3>SFTP host key</h3>
+    <% if (it.host.protocol !== "sftp") { %><p class="muted">Host keys apply to SFTP hosts only.</p>
+    <% } else if (it.host.hostKeySha256) { %><p>Pinned: <code class="fp"><%= it.host.hostKeySha256 %></code></p>
+    <% } else { %><p class="muted">Not pinned. Run "Test connection" on the saved host to scan the server's keys and pin them.</p><% } %>
+  </div>
+  <div class="card">
+    <h3>Delete host</h3>
+    <% if (it.jobCount > 0) { %><p class="muted">Used by <%= it.jobCount %> job(s); delete those first.</p><% } %>
+    <form method="post" action="/hosts/<%= it.host.id %>/delete"><%~ it.csrfField %><button type="submit" class="danger" hx-confirm="Delete this host?">Delete host</button></form>
+  </div>
+  <% } %>
+</section>

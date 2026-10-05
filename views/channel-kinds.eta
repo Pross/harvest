@@ -1,0 +1,6 @@
+<section class="panel">
+  <h2>New channel</h2>
+  <p>Choose a kind:</p>
+  <ul class="bare-list"><% for (const k of it.kinds) { %><li><a class="btn" href="/channels/new?kind=<%= k %>"><%= k %></a></li><% } %></ul>
+  <p><a href="/channels">Cancel</a></p>
+</section>

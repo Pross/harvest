@@ -1,0 +1,1 @@
+<form method="post" action="/jobs/<%= it.job.id %>/dry-run"><%~ it.csrfField %><button type="submit" title="Plan the run and show what it would do, without downloading or changing anything">Dry run</button></form>

@@ -1,0 +1,21 @@
+<section class="panel">
+  <div class="toolbar"><h2>Jobs</h2><a class="btn primary" href="/jobs/new">Add job</a></div>
+  <% if (it.jobs.length === 0) { %>
+  <p class="muted">No jobs yet. <a href="/jobs/new">Create a job</a> after adding a host.</p>
+  <% } else { %>
+  <table class="cards"><thead><tr><th>Job</th><th>Host</th><th>Paths</th><th>Schedule</th><th>Last run</th><th>Status</th><th></th></tr></thead><tbody>
+  <% for (const j of it.jobs) { %>
+    <tr><td data-label="Job"><a href="/jobs/<%= j.id %>"><%= j.name %></a><% if (!j.enabled) { %> <span class="badge">disabled</span><% } %></td>
+      <td data-label="Host"><%= j.host %></td>
+      <td data-label="Paths"><code><%= j.remotePath %></code> &rarr; <code><%= j.localPath %></code></td>
+      <td data-label="Schedule"><%= j.schedule %></td>
+      <td data-label="Last run"><%~ j.whenHtml %></td>
+      <td data-label="Status"><% if (j.state) { %><a href="/runs/<%= j.runId %>"><span class="badge st-<%= j.state %>"><%= j.state %></span></a><% } else { %><span class="muted">no runs</span><% } %></td>
+      <td class="actions">
+        <form method="post" action="/jobs/<%= j.id %>/toggle"><%~ it.csrfField %><button type="submit"><%= j.enabled ? "Disable" : "Enable" %></button></form>
+        <form method="post" action="/jobs/<%= j.id %>/run"><%~ it.csrfField %><button type="submit" class="primary">Run now</button></form>
+      </td></tr>
+  <% } %>
+  </tbody></table>
+  <% } %>
+</section>

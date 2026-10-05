@@ -1,0 +1,27 @@
+# Copy to docker-compose.yml and edit. Generate APP_SECRET with: openssl rand -hex 32
+services:
+  harvest:
+    image: ghcr.io/pross/harvest:latest
+    ports:
+      - "8099:8099"
+    environment:
+      # Encrypts stored remote credentials. Keep it stable: changing it makes
+      # saved credentials unreadable. Back it up separately from /config.
+      - APP_SECRET=change-me-generate-a-long-random-string
+      - AUTH_MODE=builtin          # builtin | none (none only behind your own auth)
+      - ADMIN_USER=admin
+      - ADMIN_PASS=change-me-at-least-8-chars
+      - TZ=UTC
+      - PUID=99
+      - PGID=100
+      - UMASK=002
+      - PUBLIC_URL=http://localhost:8099
+    volumes:
+      # Back this directory up (database, logs). scripts/backup.sh inside the
+      # container writes consistent snapshots to /config/backups.
+      - ./config:/config
+      # Download targets: map each under /data/<name>. Staging lives inside each
+      # target (.harvest-staging), so staging and destination must be on the
+      # same filesystem; never map a target so the two cross mounts.
+      - /mnt/user/media/downloads:/data/downloads
+    restart: unless-stopped

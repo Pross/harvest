@@ -1,0 +1,17 @@
+<% if (it.runs.length === 0) { %>
+  <p class="muted">No transfers running.</p>
+<% } else { for (const r of it.runs) { %>
+  <div class="transfer">
+    <div><strong><%= r.jobName %></strong> <span class="badge st-active"><%= r.state %></span>
+      <a href="/runs/<%= r.runId %>" class="muted">run #<%= r.runId %></a></div>
+    <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<%= r.pct %>"><span style="width:<%= r.pct %>%"></span></div>
+    <div class="meta"><span><%= r.pct %>%</span><span><%= r.done %> / <%= r.total %></span><span><%= r.speed %></span><span>ETA <%= r.eta %></span></div>
+    <% if (r.files.length) { %><div class="files">
+      <% for (const f of r.files) { %>
+        <div><span class="path"><%= f.path %></span> <span class="muted"><%= f.pct %>% of <%= f.total %></span>
+          <div class="bar small"><span style="width:<%= f.pct %>%"></span></div></div>
+      <% } %>
+      <% if (r.moreFiles > 0) { %><div class="muted">and <%= r.moreFiles %> more</div><% } %>
+    </div><% } %>
+  </div>
+<% } } %>

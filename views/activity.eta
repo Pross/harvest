@@ -1,0 +1,18 @@
+<h1>Activity</h1>
+<form method="get" action="/activity" class="filters">
+  <input type="text" name="category" value="<%= it.filter.category %>" placeholder="Category prefix, e.g. run." aria-label="Category prefix">
+  <select name="severity" aria-label="Severity">
+    <option value="">Any severity</option>
+    <% for (const s of ["info", "warn", "error"]) { %><option value="<%= s %>"<% if (it.filter.severity === s) { %> selected<% } %>><%= s %></option><% } %>
+  </select>
+  <select name="job" aria-label="Job">
+    <option value="">All jobs</option>
+    <% for (const j of it.jobs) { %><option value="<%= j.id %>"<% if (String(it.filter.job) === String(j.id)) { %> selected<% } %>><%= j.name %></option><% } %>
+  </select>
+  <button type="submit">Filter</button>
+  <% if (it.filter.category || it.filter.severity || it.filter.job !== "") { %><a href="/activity">Clear</a><% } %>
+</form>
+<div hx-ext="sse" sse-connect="/events">
+  <div id="activity-feed"><%~ include("partials/activity-rows", it) %></div>
+</div>
+<% if (it.rows.length === 0) { %><p class="muted">No activity matches.</p><% } %>

@@ -1,0 +1,75 @@
+<h1>Settings</h1>
+<form method="post" action="/settings">
+  <%~ it.csrfField %>
+  <section class="panel">
+    <h2>Bandwidth</h2>
+    <div class="card">
+      <label for="bwlimit">Global bandwidth limit (bytes per second)</label>
+      <input type="text" id="bwlimit" name="bwlimit" value="<%= it.form.bwlimit %>" placeholder="unlimited" autocomplete="off">
+      <% if (it.errors.bwlimit) { %><div class="field-error"><%= it.errors.bwlimit %></div><% } %>
+      <div class="hint">Examples: 10M, 500K, 2G. Blank means unlimited. Shared by all running jobs.</div>
+      <%~ include("partials/bw-profiles", it) %>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>Retention</h2>
+    <div class="card">
+      <div class="grid-2">
+        <div>
+          <label for="activityDays">Activity log (days)</label>
+          <input type="number" id="activityDays" name="activityDays" value="<%= it.form.activityDays %>" step="1">
+          <% if (it.errors.activityDays) { %><div class="field-error"><%= it.errors.activityDays %></div><% } %>
+        </div>
+        <div>
+          <label for="runDays">Run history (days)</label>
+          <input type="number" id="runDays" name="runDays" value="<%= it.form.runDays %>" step="1">
+          <% if (it.errors.runDays) { %><div class="field-error"><%= it.errors.runDays %></div><% } %>
+        </div>
+        <div>
+          <label for="observationDays">Remote observations (days)</label>
+          <input type="number" id="observationDays" name="observationDays" value="<%= it.form.observationDays %>" step="1">
+          <% if (it.errors.observationDays) { %><div class="field-error"><%= it.errors.observationDays %></div><% } %>
+        </div>
+      </div>
+      <div class="hint">Older rows are removed by the nightly maintenance task. The download ledger is never purged.</div>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>Notifications</h2>
+    <div class="card"><p class="muted">Apprise notifications arrive in a later release.</p></div>
+  </section>
+  <p><button type="submit" class="primary">Save settings</button></p>
+</form>
+
+<section class="panel">
+  <h2>Security</h2>
+  <div class="card">
+    <p>Authentication mode: <strong><%= it.authMode %></strong></p>
+    <p>Secret source: <strong><%= it.secret.source %></strong></p>
+    <div class="banner <%= it.secret.warn ? 'banner-warn' : 'banner-info' %>" role="status"><%= it.secret.note %></div>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Change password</h2>
+  <div class="card">
+  <% if (!it.builtin) { %>
+    <p class="muted">Password changes are not available because authentication is disabled (<code>AUTH_MODE=none</code>).</p>
+  <% } else { %>
+    <form method="post" action="/settings/password">
+      <%~ it.csrfField %>
+      <label for="current">Current password</label>
+      <input type="password" id="current" name="current" autocomplete="current-password" required>
+      <% if (it.pwErrors.current) { %><div class="field-error"><%= it.pwErrors.current %></div><% } %>
+      <label for="password">New password (8+ characters)</label>
+      <input type="password" id="password" name="password" autocomplete="new-password" required minlength="8">
+      <% if (it.pwErrors.password) { %><div class="field-error"><%= it.pwErrors.password %></div><% } %>
+      <label for="confirm">Confirm new password</label>
+      <input type="password" id="confirm" name="confirm" autocomplete="new-password" required>
+      <% if (it.pwErrors.confirm) { %><div class="field-error"><%= it.pwErrors.confirm %></div><% } %>
+      <p><button type="submit">Change password</button></p>
+      <div class="hint">All other sessions are signed out.</div>
+    </form>
+  <% } %>
+  </div>
+</section>

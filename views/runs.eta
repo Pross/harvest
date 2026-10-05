@@ -1,0 +1,31 @@
+<h1>Runs</h1>
+<form method="get" action="/runs" class="filters">
+  <select name="job" aria-label="Job">
+    <option value="">All jobs</option>
+    <% for (const j of it.jobs) { %><option value="<%= j.id %>"<% if (String(it.filter.job) === String(j.id)) { %> selected<% } %>><%= j.name %></option><% } %>
+  </select>
+  <select name="state" aria-label="State">
+    <option value="">Any state</option>
+    <% for (const s of it.states) { %><option value="<%= s %>"<% if (it.filter.state === s) { %> selected<% } %>><%= s %></option><% } %>
+  </select>
+  <button type="submit">Filter</button>
+  <% if (it.filter.job !== "" || it.filter.state !== "") { %><a href="/runs">Clear</a><% } %>
+</form>
+<% if (it.runs.length === 0) { %>
+  <p class="muted">No runs found.</p>
+<% } else { %>
+<table class="cards"><thead><tr><th>Run</th><th>Job</th><th>State</th><th>Started</th><th>Trigger</th><th class="num">Duration</th><th class="num">Transferred</th><th class="num">Avg speed</th><th class="num">Files</th></tr></thead><tbody>
+<% for (const r of it.runs) { %>
+  <tr><td data-label="Run"><a href="/runs/<%= r.id %>">#<%= r.id %></a></td>
+    <td data-label="Job"><a href="/jobs/<%= r.jobId %>"><%= r.jobName %></a></td>
+    <td data-label="State"><span class="badge <%= r.badge %>"><%= r.state %></span><% if (r.dryRun) { %> <span class="badge">dry run</span><% } %></td>
+    <td data-label="Started"><%~ r.whenHtml %></td>
+    <td data-label="Trigger"><%= r.trigger %></td>
+    <td data-label="Duration" class="num"><%= r.duration %></td>
+    <td data-label="Transferred" class="num"><%= r.bytes %></td>
+    <td data-label="Avg speed" class="num"><%= r.speed %></td>
+    <td data-label="Files" class="num"><%= r.files %><% if (r.failed > 0) { %> <span class="badge st-failed"><%= r.failed %> failed</span><% } %></td></tr>
+<% } %>
+</tbody></table>
+<% } %>
+<% if (it.olderUrl) { %><div class="pagination"><a href="<%= it.olderUrl %>">Older</a></div><% } %>

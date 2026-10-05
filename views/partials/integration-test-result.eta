@@ -1,0 +1,1 @@
+<div class="banner banner-<%= it.result.ok ? 'ok' : 'warn' %>" role="status"><%= it.result.message %></div>

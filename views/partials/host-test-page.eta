@@ -1,0 +1,5 @@
+<section class="panel">
+  <h2>Connection test</h2>
+  <%~ include("host-test-result", it) %>
+  <p><a href="/hosts">All hosts</a></p>
+</section>

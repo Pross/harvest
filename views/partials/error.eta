@@ -1,0 +1,5 @@
+<div class="card narrow">
+  <h2><%= it.status %>: <%= it.message %></h2>
+  <p class="muted">If you expected this to work, go back and reload the page, then try again.</p>
+  <p><a href="/">Back to the dashboard</a></p>
+</div>

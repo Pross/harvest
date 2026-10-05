@@ -1,0 +1,40 @@
+<div hx-ext="sse" sse-connect="/events">
+<section class="panel">
+  <h2>Active transfers</h2>
+  <div class="card" id="active-transfers" sse-swap="run-progress" hx-get="/fragments/active-transfers" hx-trigger="sse:run-state" hx-swap="innerHTML">
+    <%~ include("partials/active-transfers", it) %>
+  </div>
+</section>
+<div class="grid-2">
+  <section class="panel">
+    <h2>Next scheduled runs</h2>
+    <div id="next-runs" hx-get="/fragments/next-runs" hx-trigger="sse:run-state" hx-swap="innerHTML"><%~ include("partials/next-runs", it) %></div>
+  </section>
+  <section class="panel">
+    <h2>Last 7 days</h2>
+    <div class="card">
+      <%~ it.volume.svg %>
+      <div class="spark-labels"><% for (const d of it.volume.days) { %><span title="<%= d.size %>"><%= d.label %></span><% } %></div>
+      <p class="muted">Transferred: <strong><%= it.volume.total %></strong></p>
+    </div>
+  </section>
+</div>
+<section class="panel">
+  <h2>Last run per job</h2>
+  <div id="last-runs" hx-get="/fragments/last-runs" hx-trigger="sse:run-state" hx-swap="innerHTML"><%~ include("partials/last-runs", it) %></div>
+</section>
+</div>
+<section class="panel">
+  <h2>Disk space (local targets)</h2>
+  <% if (it.disks.length === 0) { %><p class="muted">No local targets yet.</p><% } else { %>
+  <table class="cards"><thead><tr><th>Path</th><th class="num">Free</th><th class="num">Total</th><th>Used</th></tr></thead><tbody>
+  <% for (const d of it.disks) { %>
+    <tr><td data-label="Path"><code><%= d.path %></code></td>
+      <% if (d.ok) { %>
+      <td data-label="Free" class="num"><%= d.free %></td><td data-label="Total" class="num"><%= d.total %></td>
+      <td data-label="Used"><div class="bar small" role="progressbar" aria-valuenow="<%= d.usedPct %>" aria-valuemin="0" aria-valuemax="100"><span style="width:<%= d.usedPct %>%"></span></div></td>
+      <% } else { %><td data-label="Free" class="num muted" colspan="3">unavailable</td><% } %></tr>
+  <% } %>
+  </tbody></table>
+  <% } %>
+</section>

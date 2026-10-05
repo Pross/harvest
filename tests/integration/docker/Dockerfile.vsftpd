@@ -1,0 +1,9 @@
+# Throwaway implicit-TLS server (vuser/testpass) with enforced TLS session reuse.
+# vsftpd segfaults (exit 139) after one session here, so the CMD restarts it in a loop.
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends vsftpd openssl && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /var/run/vsftpd/empty /srv/ftp && useradd -d /srv/ftp -s /bin/false vuser \
+ && echo /bin/false >> /etc/shells && echo 'vuser:testpass' | chpasswd \
+ && openssl req -x509 -nodes -newkey rsa:2048 -days 30 -subj /CN=vsftpd -keyout /etc/ssl/private/vs.pem -out /etc/ssl/private/vs.pem
+COPY vsftpd.conf /etc/vsftpd.conf
+CMD ["sh","-c","while true; do vsftpd /etc/vsftpd.conf; echo vsftpd-exit=$? >&2; sleep 0.3; done"]

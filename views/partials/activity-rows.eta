@@ -1,0 +1,19 @@
+<% if (it.liveQuery) { %><div id="activity-live" hx-get="/activity/rows<%= it.liveQuery %>" hx-trigger="sse:activity" hx-swap="outerHTML"></div><% } %>
+<% for (const r of it.rows) { %>
+<div class="act-row sev-<%= r.severity %>" data-id="<%= r.id %>">
+  <div class="act-head"><span class="muted"><%~ r.whenHtml %></span>
+    <span class="badge act-badge-<%= r.severity %>"><%= r.severity %></span>
+    <span class="act-cat"><%= r.category %></span>
+    <% if (r.jobId !== null) { %><a href="/jobs/<%= r.jobId %>"><%= r.jobName %></a><% } %>
+    <% if (r.runId !== null) { %><a href="/runs/<%= r.runId %>">run #<%= r.runId %></a><% } %></div>
+  <div class="act-summary"><%= r.summary %></div>
+  <% if (r.meta.length > 0) { %>
+  <details class="act-meta"><summary class="muted">Details</summary>
+    <dl><% for (const m of r.meta) { %><dt><%= m.key %></dt><dd><%= m.value %></dd><% } %></dl>
+  </details>
+  <% } %>
+</div>
+<% } %>
+<% if (it.olderQuery) { %>
+<div class="pagination" hx-get="/activity/rows<%= it.olderQuery %>" hx-trigger="revealed" hx-swap="outerHTML"><a href="/activity<%= it.olderQuery %>">Load older</a></div>
+<% } %>

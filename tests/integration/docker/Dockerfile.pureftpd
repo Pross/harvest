@@ -1,0 +1,10 @@
+# Throwaway test server (testuser/testpass). Built from Debian: stilliard/pure-ftpd is amd64-only and
+# crashes under Rosetta on Apple Silicon. Passive range must be >= 100 ports: pure-ftpd caps clients at half.
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends pure-ftpd openssl && rm -rf /var/lib/apt/lists/* \
+ && useradd -d /srv/ftp -s /bin/false ftpuser \
+ && mkdir -p /srv/ftp /etc/ssl/private \
+ && (echo testpass; echo testpass) | pure-pw useradd testuser -u ftpuser -d /srv/ftp -m \
+ && openssl req -x509 -nodes -newkey rsa:2048 -days 30 -subj /CN=pureftpd -keyout /etc/ssl/private/pure-ftpd.pem -out /etc/ssl/private/pure-ftpd.pem \
+ && chmod 600 /etc/ssl/private/pure-ftpd.pem
+ENTRYPOINT ["sh","-c","exec pure-ftpd -l puredb:/etc/pure-ftpd/pureftpd.pdb -E -j -R -P 127.0.0.1 -p $PASV_RANGE -c 50 -C 20 $FLAGS"]

@@ -1,0 +1,29 @@
+<section class="panel">
+  <h2>Integrations: <%= it.job.name %></h2>
+  <form method="post" action="/jobs/<%= it.job.id %>/integrations" class="card">
+    <%~ it.csrfField %>
+    <h3>Sonarr / Radarr</h3>
+    <label for="arr_target_id">Target</label>
+    <select id="arr_target_id" name="arr_target_id">
+      <option value="">None</option>
+      <% for (const t of it.targets) { %><option value="<%= t.id %>"<% if (it.v.arrTargetId === t.id) { %> selected<% } %>><%= t.name %> (<%= t.kind %>)</option><% } %>
+    </select>
+    <% if (it.targets.length === 0) { %><div class="hint">No targets yet. <a href="/arr-targets/new">Add one</a>.</div><% } %>
+    <label for="arr_path">Folder as the *arr container sees it</label>
+    <input type="text" id="arr_path" name="arr_path" value="<%= it.v.arrPath || '' %>" placeholder="/downloads/tv">
+    <% if (it.errors.arr_path) { %><div class="field-error"><%= it.errors.arr_path %></div><% } %>
+    <div class="hint">Replaces this job's local path (<code><%= it.job.localPath %></code>) in the scan request. One scan is sent per downloaded unit.</div>
+
+    <h3>Notifications</h3>
+    <label for="notify_on">Notify</label>
+    <select id="notify_on" name="notify_on">
+      <% for (const o of it.notifyOptions) { %><option value="<%= o.value %>"<% if (it.v.notifyOn === o.value) { %> selected<% } %>><%= o.label %></option><% } %>
+    </select>
+    <% if (it.errors.notify_on) { %><div class="field-error"><%= it.errors.notify_on %></div><% } %>
+    <% if (it.channels.length === 0) { %><div class="hint">No channels yet. <a href="/channels/new">Add one</a>.</div><% } %>
+    <% for (const c of it.channels) { %>
+    <label class="check"><input type="checkbox" name="channel" value="<%= c.id %>"<% if (it.v.notifyChannelIds.includes(c.id)) { %> checked<% } %>> <%= c.name %> <span class="badge"><%= c.kind %></span><% if (!c.enabled) { %> <span class="muted">(disabled)</span><% } %></label>
+    <% } %>
+    <p class="actions"><button type="submit" class="primary">Save</button><a href="/jobs/<%= it.job.id %>">Cancel</a></p>
+  </form>
+</section>

@@ -1,0 +1,11 @@
+<% if (it.next.length === 0) { %>
+  <p class="muted">Nothing scheduled.</p>
+<% } else { %>
+<table class="cards"><thead><tr><th>Job</th><th>Schedule</th><th>Next run</th></tr></thead><tbody>
+<% for (const n of it.next) { %>
+  <tr><td data-label="Job"><a href="/jobs/<%= n.jobId %>"><%= n.name %></a></td>
+    <td data-label="Schedule" class="muted"><%= n.human %></td>
+    <td data-label="Next"><%~ n.whenHtml %></td></tr>
+<% } %>
+</tbody></table>
+<% } %>

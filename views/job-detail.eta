@@ -1,0 +1,43 @@
+<section class="panel">
+  <div class="toolbar">
+    <h2><%= it.job.name %> <% if (!it.job.enabled) { %><span class="badge">disabled</span><% } %></h2>
+    <span class="actions">
+      <form method="post" action="/jobs/<%= it.job.id %>/run"><%~ it.csrfField %><input type="hidden" name="next" value="detail"><button type="submit" class="primary">Run now</button></form>
+      <%~ include("partials/dry-run-button", it) %>
+      <a class="btn" href="/runs?job=<%= it.job.id %>">All runs</a>
+      <a class="btn" href="/jobs/<%= it.job.id %>/ledger">Ledger</a>
+      <a class="btn" href="/jobs/<%= it.job.id %>/post-actions">Post-actions</a>
+      <a class="btn" href="/jobs/<%= it.job.id %>/integrations">Integrations</a>
+    </span>
+  </div>
+  <div class="card">
+    <table><tbody>
+    <% for (const row of it.summary) { %><tr><th scope="row"><%= row[0] %></th><td><%= row[1] %></td></tr><% } %>
+    </tbody></table>
+  </div>
+</section>
+<section class="panel">
+  <h2>Recent runs</h2>
+  <% if (it.runs.length === 0) { %><p class="muted">No runs yet.</p><% } else { %>
+  <table class="cards"><thead><tr><th>Run</th><th>When</th><th>Trigger</th><th>Status</th><th>Result</th></tr></thead><tbody>
+  <% for (const r of it.runs) { %>
+    <tr><td data-label="Run"><a href="/runs/<%= r.id %>">#<%= r.id %></a></td><td data-label="When"><%~ r.whenHtml %></td><td data-label="Trigger"><%= r.trigger %></td>
+      <td data-label="Status"><span class="badge st-<%= r.state %>"><%= r.state %></span></td><td data-label="Result" class="muted"><%= r.result %></td></tr>
+  <% } %>
+  </tbody></table>
+  <% } %>
+</section>
+<section class="panel" hx-get="/jobs/<%= it.job.id %>/webhook/panel" hx-trigger="load" hx-swap="innerHTML"><h2>Webhook triggers</h2><p><a href="/jobs/<%= it.job.id %>/webhook">Manage tokens and setup snippets</a></p></section>
+<section class="panel">
+  <h2>Edit job</h2>
+  <form method="post" action="<%= it.action %>" class="card">
+    <%~ it.csrfField %>
+    <%~ include("partials/job-fields", it) %>
+    <p class="actions"><button type="submit" class="primary">Save job</button> <a href="/jobs">Cancel</a></p>
+  </form>
+  <div class="card">
+    <h3>Delete job</h3>
+    <p class="hint">Deletes the job with its runs and ledger. Downloaded files stay on disk.</p>
+    <form method="post" action="/jobs/<%= it.job.id %>/delete"><%~ it.csrfField %><button type="submit" class="danger" hx-confirm="Delete this job?">Delete job</button></form>
+  </div>
+</section>
