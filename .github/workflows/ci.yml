@@ -13,12 +13,18 @@ env:
 
 jobs:
   test:
+    # The Node 24 leg keeps the plain job name: the main ruleset requires "test" by that exact name.
+    name: ${{ matrix.node == 24 && 'test' || format('test (node {0})', matrix.node) }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [24, 26]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: ${{ matrix.node }}
           cache: npm
       - name: Install archive tools for the real 7-Zip/unar tests
         run: sudo apt-get update && sudo apt-get install -y 7zip unar
@@ -28,12 +34,18 @@ jobs:
       - run: npm test
 
   integration:
+    # The Node 24 leg keeps the plain job name: the main ruleset requires "integration" by that exact name.
+    name: ${{ matrix.node == 24 && 'integration' || format('integration (node {0})', matrix.node) }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [24, 26]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: ${{ matrix.node }}
           cache: npm
       - name: Install pinned rclone
         run: |
