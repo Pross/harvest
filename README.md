@@ -81,14 +81,20 @@ The web UI listens on `http://localhost:8099` by default. On first run, log in w
 
 ## Unraid Installation
 
-**Template:** use the Community Applications template `harvest` or install manually with this template URL:
-```
-https://raw.githubusercontent.com/Pross/unraid-templates/main/harvest.xml
-```
+Harvest is not in Community Applications. Install it from the template repository, or add the container by hand.
+
+**With the template:** in Settings → Docker (advanced view), add `https://github.com/Pross/unraid-templates` under Template repositories. Then in the Docker tab choose Add Container and pick `harvest` from the Template dropdown. The template file is `https://raw.githubusercontent.com/Pross/unraid-templates/main/harvest.xml`.
+
+**By hand:** in the Docker tab choose Add Container and set:
+- Repository: `ghcr.io/pross/harvest:latest`, network type `bridge`
+- Port: container `8099` to host `8099` (TCP)
+- Path: `/config` to `/mnt/user/appdata/harvest` (read/write)
+- Path: `/data/<name>` to a download share (read/write), one per target
+- Variables: `APP_SECRET`, `ADMIN_USER`, `ADMIN_PASS`, plus `PUID=99`, `PGID=100`, `UMASK=002` and `TZ` as needed (see Configuration below)
 
 **Setup:**
 1. Set `App Secret` to a long random string (e.g., `openssl rand -hex 32`), and keep it stable—changing it makes stored host credentials unreadable.
-2. Set `Admin User` and `Admin Password`.
+2. Set `Admin User` and `Admin Password` (at least 8 characters).
 3. Map download target(s) under `/data/<name>` (e.g., `/mnt/user/downloads:/data/downloads`).
 4. Run the container.
 5. Open the web UI at `http://<unraid-ip>:8099`.
