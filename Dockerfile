@@ -2,7 +2,7 @@
 
 # --- Build: compile TypeScript -> dist, then fold in the .sql migrations that
 #     tsc does not copy (db.ts reads them from dist/migrations at runtime). ---
-FROM node:24-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 WORKDIR /app
 # better-sqlite3 is a native addon; toolchain is here in case no prebuilt binary
 # matches this Node ABI.
@@ -16,7 +16,7 @@ RUN npm run build && cp -r src/migrations dist/migrations
 
 # --- Production dependencies, compiled against the same base as the runtime so
 #     the better-sqlite3 binary is ABI-compatible. ---
-FROM node:24-bookworm-slim AS deps
+FROM node:26-bookworm-slim AS deps
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
@@ -24,7 +24,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 # --- Runtime ---
-FROM node:24-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
     CONFIG_DIR=/config \
