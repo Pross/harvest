@@ -168,13 +168,13 @@ describe("executor planning and observations", () => {
 
   it("skips a hostile remote path and still syncs the rest", async () => {
     const h = makeHarness();
-    h.session.files.set("/remote/../../etc/passwd", { data: makeData(100, 1), mtimeMs: 1 });
+    h.session.files.set("/remote/../../harvest-escape-probe/passwd", { data: makeData(100, 1), mtimeMs: 1 });
     h.session.set("ok.bin", makeData(1000, 2));
     const r = await h.settled();
     expect(r.state).toBe("succeeded");
     expect(r.row.filesSkipped).toBeGreaterThanOrEqual(1);
     expect(existsSync(path.join(h.local, "ok.bin"))).toBe(true);
-    expect(existsSync(path.join(h.local, "..", "..", "etc"))).toBe(false);
+    expect(existsSync(path.join(h.local, "..", "..", "harvest-escape-probe"))).toBe(false);
   });
 
   it("succeeds with nothing to do on an empty listing", async () => {
