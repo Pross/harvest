@@ -126,6 +126,28 @@ describe("trustMtime", () => {
   it("is off by default", () => {
     expect(planRun(input([file("P/a")])).units).toEqual([]);
   });
+
+  it("keeps trusting an unchanged old mtime on a retry inside the settle window (an interrupted run recorded the sighting)", () => {
+    const e = file("P/a");
+    const plan = planRun(input([e], { job: j, observations: obsMap([seenObs(e, 5_000)]) }));
+    expect(plan.units).toHaveLength(1);
+    expect(plan.skipped).toEqual([]);
+  });
+  it("without trustMtime the same retry still waits for the settle window", () => {
+    const e = file("P/a");
+    const plan = planRun(input([e], { observations: obsMap([seenObs(e, 5_000)]) }));
+    expect(reasonOf(plan, "P/a")).toBe("unsettled");
+  });
+  it("stops trusting the mtime once the file has been seen to change", () => {
+    const e = file("P/a");
+    const changed = { ...seenObs(e, 200_000), lastChangedAt: NOW - 5_000 };
+    expect(reasonOf(planRun(input([e], { job: j, observations: obsMap([changed]) })), "P/a")).toBe("unsettled");
+  });
+  it("does not trust a recent mtime on a retry either", () => {
+    const e = file("P/a", 100, NOW - 1000);
+    const plan = planRun(input([e], { job: j, observations: obsMap([seenObs(e, 5_000)]) }));
+    expect(reasonOf(plan, "P/a")).toBe("unsettled");
+  });
 });
 
 describe("min age", () => {
