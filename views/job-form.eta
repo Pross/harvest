@@ -1,3 +1,4 @@
+<%~ include("partials/form-errors", it) %>
 <section class="panel">
   <h2>New job</h2>
   <form method="post" action="<%= it.action %>" class="card">

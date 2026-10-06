@@ -1,3 +1,4 @@
+<%~ include("partials/form-errors", it) %>
 <section class="panel">
   <h2><%= it.host ? "Edit host" : "New host" %></h2>
   <% if (it.undecryptable) { %><div class="banner banner-warn" role="alert"><%= it.undecryptableMessage %> Enter the password or key below and save.</div><% } %>

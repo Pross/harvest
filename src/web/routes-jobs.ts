@@ -87,7 +87,7 @@ function record(d: JobFormData, localPath: string) {
 
 /** Turning mirror on (it can delete local files) needs the job's name typed in. */
 function mirrorConfirmError(d: JobFormData, was: JobConfig | null): string | null {
-  if (d.mode !== "mirror" || was?.mode === "mirror" || d.mirrorConfirm === d.name) return null;
+  if (d.mode !== "mirror" || was?.mode === "mirror" || d.mirrorConfirm.toLowerCase() === d.name.toLowerCase()) return null;
   return "Mirror mode deletes local files that disappear from the remote. Type the job name here to confirm.";
 }
 

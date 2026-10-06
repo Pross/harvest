@@ -1,0 +1,7 @@
+<% const errs = Object.entries(it.errors || {}); %>
+<% if (errs.length > 0) { %>
+<div class="banner banner-warn" role="alert" id="form-errors">
+  <strong>Not saved.</strong> Nothing was changed. Fix <%= errs.length === 1 ? "this" : "these" %> and save again:
+  <ul class="bare-list"><% for (const [field, message] of errs) { %><li><a href="#<%= field %>"><%= message %></a></li><% } %></ul>
+</div>
+<% } %>
