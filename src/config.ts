@@ -77,6 +77,7 @@ const Schema = z.object({
   ADMIN_USER: orBlank(z.string().min(1).optional()),
   ADMIN_PASS: orBlank(z.string().min(8, "ADMIN_PASS must be at least 8 characters").optional()),
   COOKIE_SECURE: boolVar(false),
+  METRICS_ENABLED: boolVar(false),
   TRUST_PROXY: trustProxyVar,
   PUBLIC_URL: orBlank(
     z.url({ protocol: /^https?$/, error: "PUBLIC_URL must be an http(s) URL" })

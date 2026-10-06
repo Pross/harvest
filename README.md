@@ -29,12 +29,13 @@ Self-hosted seedbox to homelab sync. Pulls files from FTP/FTPS/SFTP servers to l
 - **Sonarr/Radarr scan:** webhook trigger with per-job path mapping (Harvest path prefix <-> Sonarr host path).
 - **Notifications:** ntfy, Discord, Telegram, Pushover, generic webhook (native Node senders; no Apprise).
 
-### Phase 3 (Planned)
+### Phase 3 (In progress)
+
+- **Prometheus `/metrics`:** done, off by default (`METRICS_ENABLED`).
 
 - rsync/SCP engines (Phase 2 deferred: scope narrowed; Wave 1 focused on webhooks/actions)
 - Mirror mode (delete local files absent from remote)
 - Torrent client ratio/seed-time gating (qBittorrent/Deluge/rTorrent)
-- Prometheus `/metrics` endpoint
 - WebDAV/SMB/S3 support
 
 ### Known Limits
@@ -120,6 +121,7 @@ All settings are environment variables (Unraid exposes them as Config entries; D
 | `ADMIN_USER` | (unset) | Username for initial admin user (builtin auth only). Applied only when no user exists. Afterwards, change it via the Settings page. |
 | `ADMIN_PASS` | (unset) | Password for initial admin user. Minimum 8 characters. Applied only when no user exists. Afterwards, change it via the Settings page. |
 | `COOKIE_SECURE` | false | Set to `true` when the app is served over HTTPS (via a reverse proxy). Controls the `Secure` flag on session cookies. |
+| `METRICS_ENABLED` | false | Serve Prometheus metrics at `/metrics`. **No login is required when enabled**, so anyone who can reach the port can read job names and transfer stats; keep the port on your LAN or put it behind your own proxy. See Metrics below. |
 | `TRUST_PROXY` | false | Configures trust in reverse-proxy headers (`X-Forwarded-For`, `X-Forwarded-Proto`) for correct client IP and HTTPS detection. Options: `false` (default), `true` (trusts any proxy—only safe if the proxy overwrites the header), a hop count (e.g., `1`), or a comma-separated list of proxy IPs/CIDRs (e.g., `172.18.0.0/16,10.0.0.1`). Unraid users typically use `false`. |
 | `PUBLIC_URL` | (unset) | The public URL of the app (e.g., `https://harvest.example.com`). Used to generate webhook URLs and validate cross-site requests. If unset and `AUTH_MODE=none`, a startup warning is printed. |
 | `ALLOWED_HOSTS` | (unset) | Optional Host header allowlist (comma-separated). If set, requests with an unknown Host are rejected with a 421 status. Useful to block DNS rebinding attacks. Leave unset if behind a trusted reverse proxy. |
@@ -135,6 +137,34 @@ All settings are environment variables (Unraid exposes them as Config entries; D
 | `PUID` | 99 | User ID the app runs as. Harvest never runs as root. Unraid default is 99 (nobody). |
 | `PGID` | 100 | Group ID the app runs as. Unraid default is 100 (users). |
 | `UMASK` | 002 | File creation mask applied at startup (e.g., `002` allows group writes). |
+
+## Metrics
+
+Set `METRICS_ENABLED=true` to serve Prometheus text-format metrics at `/metrics` (no authentication; see the warning in the table above). Values are read from the database at scrape time, so they survive restarts. Dry runs are excluded.
+
+| Metric | Labels | Meaning |
+|---|---|---|
+| `harvest_jobs` | `enabled` | Configured jobs |
+| `harvest_active_runs` | | Runs queued or executing |
+| `harvest_active_speed_bytes_per_second` | | Combined speed of active runs |
+| `harvest_runs_retained` | `state` | Runs still stored, by state (old runs are purged, so this is not a lifetime counter) |
+| `harvest_job_last_run_success` | `job` | 1 if the last finished run succeeded, 0 if partial or failed |
+| `harvest_job_last_run_finished_timestamp_seconds` | `job` | When the last finished run ended |
+| `harvest_job_last_run_bytes` | `job` | Bytes moved by the last finished run |
+| `harvest_job_last_run_failed_files` | `job` | Files that failed in the last finished run |
+| `harvest_job_ledger_files` / `harvest_job_ledger_bytes` | `job` | Size of the job's ledger (forgotten entries excluded) |
+| `harvest_process_start_time_seconds` | | When this process started |
+
+Prometheus scrape config:
+
+```yaml
+scrape_configs:
+  - job_name: harvest
+    static_configs:
+      - targets: ["<unraid-ip>:8099"]
+```
+
+A useful alert: `time() - harvest_job_last_run_finished_timestamp_seconds > 86400` for a job that should run daily.
 
 ## First-Run Login
 

@@ -12,6 +12,7 @@ import { cookieSecure, registerAuth } from "./auth.js";
 import { registerGuards } from "./csrf.js";
 import type { AppDeps } from "./deps.js";
 import { render } from "./helpers.js";
+import { registerMetrics } from "./metrics.js";
 import { registerDashboardRoutes } from "./routes-dashboard.js";
 import { registerSetup, ensureAdmin } from "./setup.js";
 import { registerSse, type SseOptions } from "./sse.js";
@@ -98,6 +99,7 @@ export async function buildServer(deps: AppDeps, extraRoutes: RouteRegistrar[] =
   registerStreamHub(app);
   await registerPlugins(app, deps);
   registerHealth(app, deps);
+  if (deps.config.METRICS_ENABLED) registerMetrics(app, deps);
   registerGuards(app, deps);
   const sessions = await registerAuth(app, deps, opts);
   registerSetup(app, deps, await ensureAdmin(deps));
