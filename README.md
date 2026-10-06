@@ -1,6 +1,15 @@
+<p align="center"><img src="docs/icon.png" alt="Harvest" width="96"></p>
+
 # Harvest
 
 Self-hosted seedbox to homelab sync. Pulls files from FTP/FTPS/SFTP servers to local folders on a schedule, with a ledger so a deleted local file is never re-downloaded. The settle check and staging directory ensure Sonarr/Radarr/Plex never see a half-written file.
+
+## Screenshots
+
+| Dashboard | Jobs |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Jobs](docs/screenshots/jobs.png) |
+| ![A mirror job](docs/screenshots/job-detail.png) | ![Mirror dry run](docs/screenshots/mirror-dry-run.png) |
 
 ## Features
 
