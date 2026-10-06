@@ -102,6 +102,12 @@ export class SqliteRunStore implements RunStore {
     return (this.db.prepare("SELECT * FROM runs WHERE job_id = ? ORDER BY id DESC LIMIT ?").all(jobId, limit) as RunSql[]).map(toRun);
   }
 
+  /** Newest run that counts as the job's last result: not a dry run, and not one skipped because the job was already running. */
+  lastReal(jobId: number): RunRow | undefined {
+    const r = this.db.prepare("SELECT * FROM runs WHERE job_id = ? AND dry_run = 0 AND state != 'skipped_locked' ORDER BY id DESC LIMIT 1").get(jobId) as RunSql | undefined;
+    return r && toRun(r);
+  }
+
   listRecent(limit: number): RunRow[] {
     return (this.db.prepare("SELECT * FROM runs ORDER BY id DESC LIMIT ?").all(limit) as RunSql[]).map(toRun);
   }
