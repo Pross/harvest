@@ -60,10 +60,12 @@
     <p class="actions">
       <button type="submit" class="primary">Save host</button>
       <button type="submit" formaction="/hosts/test" hx-post="/hosts/test" hx-target="#test-result" hx-include="closest form">Test connection</button>
+      <button type="submit" formaction="/hosts/probe" hx-post="/hosts/probe" hx-target="#test-result" hx-include="closest form" title="FTP and FTPS only">Detect best settings</button>
       <a href="/hosts">Cancel</a>
     </p>
   </form>
   <div id="test-result" aria-live="polite"></div>
+  <script src="/static/host-probe.js" defer></script>
 
   <% if (it.host) { %>
   <div class="card">
