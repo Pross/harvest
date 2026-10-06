@@ -41,6 +41,12 @@ export class SqlitePartialsStore implements PartialsStore {
     return { ...row, remoteRaw: row.remoteRaw ?? null, id, promoteState: "downloading", finalPath: null };
   }
 
+  /** Bytes already safely on disk for a file's partial download (0 when there is none). */
+  durableTotal(jobId: number, remotePath: string): number {
+    const p = this.get(jobId, remotePath);
+    return p ? this.ranges(p.id).reduce((n, r) => n + r.durableBytes, 0) : 0;
+  }
+
   ranges(partialId: number): RangeRow[] {
     const rows = this.db.prepare("SELECT * FROM partial_ranges WHERE partial_id = ? ORDER BY idx").all(partialId) as
       { partial_id: number; idx: number; start_byte: number; end_byte: number; durable_bytes: number }[];
