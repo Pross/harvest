@@ -30,10 +30,10 @@ export const ANONYMOUS: AuthContext = { authenticated: false, user: null, csrfTo
 
 export const pathOf = (url: string): string => url.split(/[?#]/)[0] ?? "";
 
-/** Paths served without a session: login, setup, health and static assets. The only place this list lives. */
+/** Paths served without a session: login, setup, health, metrics (only routed when METRICS_ENABLED) and static assets. The only place this list lives. */
 export function isPublicPath(url: string): boolean {
   const p = pathOf(url);
-  return p === "/healthz" || p === "/login" || p === "/setup" || p.startsWith("/static/");
+  return p === "/healthz" || p === "/metrics" || p === "/login" || p === "/setup" || p.startsWith("/static/");
 }
 
 /** Hidden CSRF input for forms. Emit with `<%~ csrfField(it.csrfToken) %>` or via `it.csrfField`. */
