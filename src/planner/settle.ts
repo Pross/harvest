@@ -21,10 +21,11 @@ export type Eligibility = { reason: SkipReason | null; warning?: string };
 
 function settleReason(job: JobConfig, first: boolean, obs: Observation, now: number): SkipReason | null {
   const settleMs = job.settleSeconds * 1000;
-  if (first) {
-    const trusted = job.trustMtime && obs.mtimeMs !== null && now - obs.mtimeMs >= settleMs;
-    return trusted ? null : "first_sighting";
-  }
+  // An old modification time vouches for a file on every sighting while it has not been seen to change, so retrying
+  // after an interrupted run is not held for another settle window. Once it has changed, only the settle clock counts.
+  const unchanged = first || obs.lastChangedAt === obs.firstSeenAt;
+  if (job.trustMtime && unchanged && obs.mtimeMs !== null && now - obs.mtimeMs >= settleMs) return null;
+  if (first) return "first_sighting";
   return now - obs.lastChangedAt >= settleMs ? null : "unsettled";
 }
 
