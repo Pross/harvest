@@ -303,7 +303,17 @@ describe("executor cancellation and resume", () => {
     expect(h.session.ranged.bytes - before).toBeLessThanOrEqual(200_000 - durable + 3 * 1024);
     expect(h.session.ranged.bytes - before).toBeLessThan(200_000);
     expect(r.row.bytesDone).toBe(200_000);
+    const note = h.activity().find((a) => a.category === "transfer" && /^Resumed big\.bin/.test(a.summary));
+    expect(note).toBeDefined();
+    expect((note!.meta as { alreadyOnDisk: number }).alreadyOnDisk).toBe(durable);
     vi.restoreAllMocks();
+  });
+
+  it("a fresh download does not claim to be a resume", async () => {
+    const h = makeHarness();
+    h.session.set("big.bin", makeData(50_000, 5));
+    expect((await h.settled()).state).toBe("succeeded");
+    expect(h.activity().some((a) => /Resumed/.test(a.summary))).toBe(false);
   });
 
   it("an already aborted signal ends cancelled without downloading", async () => {

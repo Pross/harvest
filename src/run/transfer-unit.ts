@@ -123,6 +123,7 @@ function recordFile(ctx: RunCtx, unitKey: string, f: PlannedFile, state: string,
 
 async function fetchFile(ctx: RunCtx, unit: PlannedUnit, file: PlannedFile): Promise<DownloadFileResult> {
   const { job, deps } = ctx;
+  const prior = deps.stores.partials.durableTotal(job.id, file.remotePath);
   const { staging } = resolvePaths(job.localPath, job.id, file.remotePath);
   await fsp.mkdir(path.dirname(staging), { recursive: true });
   ctx.tracker.begin(file.remotePath, file.size);
@@ -134,6 +135,10 @@ async function fetchFile(ctx: RunCtx, unit: PlannedUnit, file: PlannedFile): Pro
     stallTimeoutMs: deps.cfg.stallTimeoutMs, resumeMarginBytes: deps.cfg.resumeMarginBytes, retries: job.retries,
     backoff: deps.backoff, signal: ctx.signal, onProgress: (d) => ctx.tracker.add(file.remotePath, d),
   });
+  if (result.resumed && prior > 0) {
+    const mib = (n: number): string => `${(n / 1_048_576).toFixed(1)} MiB`;
+    ctx.note("transfer", "info", `Resumed ${file.remotePath}: ${mib(prior)} of ${mib(file.size)} were already on disk from an earlier attempt`, { file: file.remotePath, alreadyOnDisk: prior, size: file.size });
+  }
   recordFile(ctx, unit.key, file, "downloaded", file.size);
   return result;
 }
