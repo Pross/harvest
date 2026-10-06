@@ -11,7 +11,11 @@ export const DRY_DELETE = "would_delete";
 /** Activity category of the row holding a mirror dry run's true counts and any refusal. */
 export const DRY_MIRROR_CATEGORY = "dry-run-mirror";
 
-export type DryMirrorSummary = { wouldDelete: number; refused: string | null };
+export type DryMirrorSummary = { wouldDelete: number; refused: string | null; allowedLarge?: boolean };
+
+/** One-shot permission to delete past the safety limits: valid for a day, then the user has to give it again. */
+export const ALLOW_LARGE_TTL_MS = 24 * 3_600_000;
+export const largeAllowed = (job: JobConfig, now: number): boolean => job.mirrorAllowLargeAt !== null && now - job.mirrorAllowLargeAt < ALLOW_LARGE_TTL_MS;
 
 export type MirrorCtx = {
   job: JobConfig;
@@ -28,10 +32,11 @@ export type MirrorCtx = {
 /** Dry run: record what a real run would delete, then arm the job so a real run is allowed (unless it was edited meanwhile). Nothing is touched on disk. */
 function dryMirror(ctx: MirrorCtx): void {
   const { stores, job, runId } = ctx;
-  const plan = planMirrorDeletes(ctx.listing, stores.ledger.active(job.id));
+  const allowed = largeAllowed(job, ctx.now());
+  const plan = planMirrorDeletes(ctx.listing, stores.ledger.active(job.id), allowed);
   stores.runs.inTransaction(() => {
     plan.deletes.slice(0, DRY_ROW_CAP).forEach((d) => stores.runs.recordFile({ runId, unitKey: "", remotePath: d.remotePath, size: d.size, state: DRY_DELETE, bytes: 0, attempts: 0 }));
-    const meta: DryMirrorSummary = { wouldDelete: plan.deletes.length, refused: plan.refused };
+    const meta: DryMirrorSummary = { wouldDelete: plan.deletes.length, refused: plan.refused, ...(allowed ? { allowedLarge: true } : {}) };
     stores.activity.record({ category: DRY_MIRROR_CATEGORY, runId, jobId: job.id, summary: plan.refused ?? `Mirror would delete ${plan.deletes.length} local file(s)`, meta });
   });
   const cur = stores.jobs.get(job.id);
@@ -42,7 +47,9 @@ function dryMirror(ctx: MirrorCtx): void {
 /** Real run: delete local files whose remote file is gone. Only called when every download this run planned succeeded. */
 async function realMirror(ctx: MirrorCtx): Promise<void> {
   const { stores, job } = ctx;
-  const plan = planMirrorDeletes(ctx.listing, stores.ledger.active(job.id));
+  const allowed = largeAllowed(job, ctx.now());
+  const plan = planMirrorDeletes(ctx.listing, stores.ledger.active(job.id), allowed);
+  if (allowed) stores.jobs.update(job.id, { mirrorAllowLargeAt: null }); // consumed by this sweep, whatever it finds
   if (plan.refused) return ctx.warn(`Mirror sweep skipped: ${plan.refused}`);
   if (plan.deletes.length === 0) return;
   const out = await sweepLocal(job.localPath, plan.deletes, (p) => stores.ledger.forgetFile(job.id, p), ctx.signal);

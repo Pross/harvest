@@ -58,6 +58,8 @@ export type JobConfig = {
   changedPolicy: ChangedPolicy;
   /** Mirror mode only: when a dry run last armed the job for real runs. Null means a real run is refused. */
   mirrorArmedAt: number | null;
+  /** Mirror mode only: when the user allowed one real run to delete past the safety limits. Expires and is consumed by that run. */
+  mirrorAllowLargeAt: number | null;
 };
 
 export type RunState =

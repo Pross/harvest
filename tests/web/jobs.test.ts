@@ -7,6 +7,7 @@ import type { TriggerResult } from "../../src/run/manager-types.js";
 import { parseHumanRate, parseHumanSize, sizeToInput } from "../../src/web/job-schemas.js";
 import { registerBrowseRoutes } from "../../src/web/routes-browse.js";
 import { registerHostRoutes } from "../../src/web/routes-hosts.js";
+import { registerJobMirrorRoutes } from "../../src/web/routes-job-mirror.js";
 import { registerJobRoutes } from "../../src/web/routes-jobs.js";
 import { makeHarness, req, session, type Harness } from "./harness.js";
 
@@ -30,7 +31,7 @@ const form = (o: Record<string, string>): string => new URLSearchParams(o).toStr
 type Ctx = { h: Harness; sid: string; csrf: string; sftp: number; ftp: number; changed: ReturnType<typeof vi.fn>; trigger: ReturnType<typeof vi.fn> };
 
 async function setup(): Promise<Ctx> {
-  const h = await makeHarness({ routes: [registerHostRoutes, registerJobRoutes, registerBrowseRoutes], env: { BROWSE_ROOTS: root, CONFIG_DIR: cfgDir } });
+  const h = await makeHarness({ routes: [registerHostRoutes, registerJobRoutes, registerJobMirrorRoutes, registerBrowseRoutes], env: { BROWSE_ROOTS: root, CONFIG_DIR: cfgDir } });
   const changed = vi.fn();
   const trigger = vi.fn<(id: number, t: string) => TriggerResult>(() => ({ status: "started", runId: 7 }));
   h.deps.onJobsChanged = changed;
@@ -626,5 +627,59 @@ describe("mirror mode", () => {
     const body = (await get(c, "/jobs/1")).body;
     expect(body).toContain("mirror (armed 2023-11-14 22:13:20 UTC)");
     expect(body).not.toContain("&lt;time");
+  });
+});
+
+describe("mirror safety limits", () => {
+  const mirror = (o: Record<string, string> = {}) => ({ mode: "mirror", mirror_confirm: "Movies", ...o });
+
+  it("offers the permission only on mirror jobs, and shows when it is active", async () => {
+    const c = await setup();
+    await create(c);
+    expect((await get(c, "/jobs/1")).body).not.toContain("Mirror safety limits");
+    await post(c, "/jobs/1", payload(c, mirror()));
+    const page = (await get(c, "/jobs/1")).body;
+    expect(page).toContain("Mirror safety limits");
+    expect(page).toContain('action="/jobs/1/mirror-allow"');
+    expect(page).toContain("Allow one large delete");
+    c.h.deps.stores.jobs.update(1, { mirrorAllowLargeAt: Date.now() });
+    const active = (await get(c, "/jobs/1")).body;
+    expect(active).toContain('action="/jobs/1/mirror-disallow"');
+    expect(active).toContain("used up by that run");
+  });
+
+  it("needs the checkbox, and only works for mirror jobs", async () => {
+    const c = await setup();
+    await create(c);
+    const copy = await post(c, "/jobs/1/mirror-allow", { confirm: "on" });
+    expect(flashOf(copy)).toContain("Only mirror jobs");
+    expect(job(c)?.mirrorAllowLargeAt).toBeNull();
+    await post(c, "/jobs/1", payload(c, mirror()));
+    expect(flashOf(await post(c, "/jobs/1/mirror-allow"))).toContain("Tick the box");
+    expect(job(c)?.mirrorAllowLargeAt).toBeNull();
+    const ok = await post(c, "/jobs/1/mirror-allow", { confirm: "on" });
+    expect(ok.statusCode).toBe(303);
+    expect(job(c)?.mirrorAllowLargeAt).not.toBeNull();
+    await post(c, "/jobs/1/mirror-disallow");
+    expect(job(c)?.mirrorAllowLargeAt).toBeNull();
+  });
+
+  it("is revoked by editing the mode or paths, and kept by harmless edits", async () => {
+    const c = await setup();
+    await create(c, mirror());
+    c.h.deps.stores.jobs.update(1, { mirrorArmedAt: 1, mirrorAllowLargeAt: 2 });
+    await post(c, "/jobs/1", payload(c, { mode: "mirror", retries: "5" }));
+    expect(job(c)).toMatchObject({ mirrorArmedAt: 1, mirrorAllowLargeAt: 2 });
+    await post(c, "/jobs/1", payload(c, { mode: "copy_new" }));
+    expect(job(c)).toMatchObject({ mirrorArmedAt: null, mirrorAllowLargeAt: null });
+  });
+
+  it("404s unknown jobs and enforces CSRF", async () => {
+    const c = await setup();
+    expect((await post(c, "/jobs/99/mirror-allow", { confirm: "on" })).statusCode).toBe(404);
+    await create(c, mirror());
+    const noToken = await req(c.h, { method: "POST", url: "/jobs/1/mirror-allow", sid: c.sid, payload: form({ confirm: "on" }), headers: { "content-type": "application/x-www-form-urlencoded" } });
+    expect(noToken.statusCode).toBe(403);
+    expect(job(c)?.mirrorAllowLargeAt).toBeNull();
   });
 });

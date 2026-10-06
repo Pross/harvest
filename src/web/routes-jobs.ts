@@ -7,6 +7,7 @@ import type { AppDeps } from "./deps.js";
 import { formatAbsolute, formatBytes, formatTime } from "./format.js";
 import { redirectTo, render, renderFragment, runHook, savedFlash, type FlashKind } from "./helpers.js";
 import { bodyStrings, parseId, type FormErrors } from "./host-schemas.js";
+import { mirrorAllowInfo } from "./routes-job-mirror.js";
 import {
   NEW_JOB_VALUES, crossValidate, hasNoHashes, jobToValues, jobValues, parseJobForm, sizeToInput, type JobFormData,
 } from "./job-schemas.js";
@@ -62,7 +63,7 @@ function summaryRows(deps: AppDeps, j: JobConfig): [string, string][] {
 }
 
 async function renderJobForm(reply: FastifyReply, deps: AppDeps, job: JobConfig | null, values: Record<string, string>, errors: FormErrors, status = 200) {
-  const base = { nav: "jobs", job, values, errors, hosts: hostChoices(deps), action: job ? `/jobs/${job.id}` : "/jobs" };
+  const base = { nav: "jobs", job, values, errors, hosts: hostChoices(deps), action: job ? `/jobs/${job.id}` : "/jobs", mirrorAllow: job ? mirrorAllowInfo(job) : null };
   if (!job) return render(reply, deps, "job-form.eta", { title: "New job", ...base }, status);
   const runs = deps.stores.runs.list(job.id, 10).map((r) => ({
     id: r.id, state: r.state, trigger: r.trigger, whenHtml: formatTime(r.finishedAt ?? r.startedAt),
@@ -121,7 +122,7 @@ async function updateJob(req: FastifyRequest<{ Params: { id: string } }>, reply:
   if (confirm) errors["mirror_confirm"] = confirm;
   if (Object.keys(errors).length > 0) return renderJobForm(reply, deps, cur, values, errors, 400);
   const disarm = resets || cur.mode !== d.mode || cur.localPath !== localPath;
-  deps.stores.jobs.update(id, { ...record(d, localPath), ...(disarm ? { mirrorArmedAt: null } : {}) });
+  deps.stores.jobs.update(id, { ...record(d, localPath), ...(disarm ? { mirrorArmedAt: null, mirrorAllowLargeAt: null } : {}) });
   if (resets) deps.stores.ledger.forgetAll(id);
   const applied = runHook(deps, () => deps.onJobsChanged(), "jobs");
   const mirrorOff = d.mode === "mirror" && disarm;
