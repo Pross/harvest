@@ -40,12 +40,19 @@ function listPage(deps: AppDeps) {
   return { title: "Jobs", nav: "jobs", jobs };
 }
 
+const MIRROR_SAVED = "Job saved. Mirror mode is not armed yet: run a dry run and review what it would delete. Real runs are refused until then.";
+
+function modeText(j: JobConfig): string {
+  if (j.mode !== "mirror") return j.mode;
+  return j.mirrorArmedAt === null ? "mirror (not armed: run a dry run before the first real run)" : `mirror (armed ${formatTime(j.mirrorArmedAt)})`;
+}
+
 function summaryRows(deps: AppDeps, j: JobConfig): [string, string][] {
   const host = deps.stores.hosts.getPublic(j.hostId);
   return [
     ["Host", host ? `${host.name} (${host.protocol}, ${host.host}:${host.port})` : "missing host"],
     ["Remote path", j.remotePath], ["Local path", j.localPath], ["Schedule", scheduleText(j)],
-    ["Mode", `${j.mode}, units: ${j.unitMode}, changed files: ${j.changedPolicy}`],
+    ["Mode", `${modeText(j)}, units: ${j.unitMode}, changed files: ${j.changedPolicy}`],
     ["After sync", afterSyncText(j)],
     ["Verify", j.verify], ["Settle / min age", `${j.settleSeconds}s / ${j.minAgeSeconds}s`],
     ["Size filter", `${j.minSize === null ? "none" : sizeToInput(j.minSize)} to ${j.maxSize === null ? "none" : sizeToInput(j.maxSize)}`],
@@ -74,8 +81,14 @@ async function checkJob(deps: AppDeps, d: JobFormData, exceptId: number | null):
 }
 
 function record(d: JobFormData, localPath: string) {
-  const { confirmLedgerReset: _confirm, ...rest } = d;
+  const { confirmLedgerReset: _confirm, mirrorConfirm: _mirror, ...rest } = d;
   return { ...rest, localPath };
+}
+
+/** Turning mirror on (it can delete local files) needs the job's name typed in. */
+function mirrorConfirmError(d: JobFormData, was: JobConfig | null): string | null {
+  if (d.mode !== "mirror" || was?.mode === "mirror" || d.mirrorConfirm === d.name) return null;
+  return "Mirror mode deletes local files that disappear from the remote. Type the job name here to confirm.";
 }
 
 async function createJob(req: FastifyRequest, reply: FastifyReply, deps: AppDeps) {
@@ -83,10 +96,12 @@ async function createJob(req: FastifyRequest, reply: FastifyReply, deps: AppDeps
   const parsed = parseJobForm(req.body);
   if (!parsed.ok) return renderJobForm(reply, deps, null, values, parsed.errors, 400);
   const { errors, localPath } = await checkJob(deps, parsed.data, null);
+  const confirm = mirrorConfirmError(parsed.data, null);
+  if (confirm) errors["mirror_confirm"] = confirm;
   if (Object.keys(errors).length > 0) return renderJobForm(reply, deps, null, values, errors, 400);
   const id = deps.stores.jobs.create(record(parsed.data, localPath));
   const applied = runHook(deps, () => deps.onJobsChanged(), "jobs");
-  return redirectTo(reply, `/jobs/${id}`, savedFlash(applied, "Job saved."));
+  return redirectTo(reply, `/jobs/${id}`, savedFlash(applied, parsed.data.mode === "mirror" ? MIRROR_SAVED : "Job saved."));
 }
 
 async function updateJob(req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply, deps: AppDeps) {
@@ -102,11 +117,15 @@ async function updateJob(req: FastifyRequest<{ Params: { id: string } }>, reply:
   if (resets && !d.confirmLedgerReset) {
     errors["confirm_ledger_reset"] = "Changing the host or remote path resets this job's ledger (every remote file counts as new again). Tick the box to confirm.";
   }
+  const confirm = mirrorConfirmError(d, cur);
+  if (confirm) errors["mirror_confirm"] = confirm;
   if (Object.keys(errors).length > 0) return renderJobForm(reply, deps, cur, values, errors, 400);
-  deps.stores.jobs.update(id, record(d, localPath));
+  const disarm = resets || cur.mode !== d.mode || cur.localPath !== localPath;
+  deps.stores.jobs.update(id, { ...record(d, localPath), ...(disarm ? { mirrorArmedAt: null } : {}) });
   if (resets) deps.stores.ledger.forgetAll(id);
   const applied = runHook(deps, () => deps.onJobsChanged(), "jobs");
-  return redirectTo(reply, `/jobs/${id}`, savedFlash(applied, resets ? "Job saved. The ledger was reset." : "Job saved."));
+  const mirrorOff = d.mode === "mirror" && disarm;
+  return redirectTo(reply, `/jobs/${id}`, savedFlash(applied, mirrorOff ? MIRROR_SAVED : resets ? "Job saved. The ledger was reset." : "Job saved."));
 }
 
 const TRIGGER_MESSAGES: Record<TriggerResult["status"], (r: TriggerResult) => { kind: FlashKind; message: string }> = {

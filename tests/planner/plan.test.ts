@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { PermanentError } from "../../src/errors.js";
 import { planRun, unitKeyFor } from "../../src/planner/plan.js";
 import { file, input, job, ledgerMap, obsMap, seenObs } from "./helpers.js";
 
@@ -14,9 +13,24 @@ describe("unitKeyFor", () => {
 });
 
 describe("mirror", () => {
-  it("throws PermanentError", () => {
-    expect(() => planRun(input([], { job: job({ mode: "mirror" }) }))).toThrow(PermanentError);
-    expect(() => planRun(input([], { job: job({ mode: "mirror" }) }))).toThrow("mirror mode is not implemented in phase 1");
+  const mirror = job({ mode: "mirror" });
+  it("plans like copy mode when nothing is missing locally", () => {
+    const e = file("P/a");
+    const plan = planRun(ready([e], { job: mirror, ledger: ledgerMap([led("P/a")]) }));
+    expect(plan.units).toEqual([]);
+    expect(plan.skipped).toEqual([{ remotePath: "P/a", reason: "already_synced" }]);
+  });
+
+  it("downloads a ledger file again when its local copy is missing", () => {
+    const e = file("P/a");
+    const plan = planRun(ready([e], { job: mirror, ledger: ledgerMap([led("P/a")]), missingLocal: new Set(["P/a"]) }));
+    expect(plan.units.map((u) => u.key)).toEqual(["P"]);
+  });
+
+  it("ignores missingLocal outside mirror mode, so a deleted local file is never re-downloaded", () => {
+    const e = file("P/a");
+    const plan = planRun(ready([e], { ledger: ledgerMap([led("P/a")]), missingLocal: new Set(["P/a"]) }));
+    expect(plan.units).toEqual([]);
   });
 });
 

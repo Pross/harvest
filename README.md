@@ -32,9 +32,9 @@ Self-hosted seedbox to homelab sync. Pulls files from FTP/FTPS/SFTP servers to l
 ### Phase 3 (In progress)
 
 - **Prometheus `/metrics`:** done, off by default (`METRICS_ENABLED`).
+- **Mirror mode:** done, see below.
 
 - rsync/SCP engines (Phase 2 deferred: scope narrowed; Wave 1 focused on webhooks/actions)
-- Mirror mode (delete local files absent from remote)
 - Torrent client ratio/seed-time gating (qBittorrent/Deluge/rTorrent)
 - WebDAV/SMB/S3 support
 
@@ -44,7 +44,7 @@ Self-hosted seedbox to homelab sync. Pulls files from FTP/FTPS/SFTP servers to l
 - **FTPS self-signed certificates:** accepted, but not pinned; MITM attacks are possible on untrusted networks.
 - **Parallel ranges unproven on FTPS:** spikes found single-stream better; FTPS behavior varies by network RTT.
 - **Remote mtime reliability:** FTP servers often return unreliable mtimes (TLS session timezone issues); settle uses Harvest's observation clock (size + change time).
-- **rsync/SCP and mirror mode:** deferred to Phase 3 (out of scope for Phase 2 Wave 1).
+- **rsync/SCP:** deferred to Phase 3 (out of scope for Phase 2 Wave 1).
 
 ## Webhooks and Torrent Client Integration
 
@@ -137,6 +137,19 @@ All settings are environment variables (Unraid exposes them as Config entries; D
 | `PUID` | 99 | User ID the app runs as. Harvest never runs as root. Unraid default is 99 (nobody). |
 | `PGID` | 100 | Group ID the app runs as. Unraid default is 100 (users). |
 | `UMASK` | 002 | File creation mask applied at startup (e.g., `002` allows group writes). |
+
+## Mirror mode
+
+A job in mirror mode keeps the local folder in step with the remote: files that disappear from the remote are deleted locally, and files you deleted locally are downloaded again. **It deletes files on your disk**, so it is fenced in:
+
+- **Only files Harvest placed are ever deleted.** Candidates come from the job's ledger. Anything you added to the folder by hand is never touched, and a file whose size no longer matches what Harvest placed (you edited it) is kept and dropped from the ledger.
+- **Typed confirmation.** Switching a job to mirror needs the job's name typed into the form.
+- **A dry run must come first.** A real mirror run is refused ("not armed") until a dry run has finished and armed the job. The dry run page lists exactly which local files a real run would delete. Changing the job's mode, host, remote path or local path disarms it again.
+- **Only after-sync "Keep remote files".** Otherwise the remote copy disappears after syncing and the mirror would delete the local one. The form and the executor both refuse the combination.
+- **Deletes only follow a clean run.** If any download failed or was dropped (for example for lack of space), nothing is deleted that run. The sweep also refuses if the remote listing is empty, or if it would delete more than half of the ledger (when that is more than 10 files). That catches a wrong remote path or a truncated listing. To drop many entries on purpose, forget them in the ledger first.
+- **Safe on disk.** Each delete is checked to stay inside the job's local folder without following symlinks, must be a regular file, and empty parent folders are tidied up to (never including) the local folder.
+
+A mirror run also records what happened as activity entries, and any file it kept makes the run `partial`.
 
 ## Metrics
 

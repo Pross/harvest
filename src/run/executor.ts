@@ -10,6 +10,8 @@ import type { Slots } from "./connection-slots.js";
 import { recordDryRun } from "./dry-run.js";
 import type { EventBus } from "./events.js";
 import type { RunJob } from "./manager-types.js";
+import { findMissingLocal } from "./mirror-fs.js";
+import { assertMirrorAllowed, runMirror } from "./mirror-sweep.js";
 import { ensureStaging, type SameDevice } from "./paths.js";
 import type { DownloadFileRequest } from "./range-downloader.js";
 import { fitToSpace, unitFits, type SpaceReservations, type Statfs, defaultStatfs } from "./space.js";
@@ -79,6 +81,7 @@ class Execution {
 
   private async main(): Promise<RunState> {
     const dryRun = this.dryRun();
+    assertMirrorAllowed(this.job, dryRun);
     this.note("run", "info", `Run started for ${this.job.name}${dryRun ? " (dry run)" : ""}`);
     this.setState("connecting");
     const session = await this.connect();
@@ -86,20 +89,28 @@ class Execution {
     const listing = await this.listRemote(session);
     this.checkAbort();
     this.setState("planning");
-    const plan = this.plan(listing, dryRun);
+    const plan = await this.plan(listing, dryRun);
     if (plan.units.length === 0) {
       if (dryRun) recordDryRun(this.deps.stores, this.runId, plan.skipped, [], []);
-      return this.finish("succeeded", "Nothing to do", plan);
+      return this.wrapUp(listing, dryRun, "succeeded", "Nothing to do", plan);
     }
     this.setState("awaiting_space");
     const { kept, dropped } = await this.fit(plan.units);
     if (dryRun) recordDryRun(this.deps.stores, this.runId, plan.skipped, kept, dropped);
-    this.tally.droppedUnits = dropped.length;
-    this.tally.droppedFiles = dropped.reduce((n, u) => n + u.files.length, 0);
-    if (kept.length === 0) return this.finish("skipped_space", `Not enough free space for ${dropped.length} unit(s)`, plan);
-    if (dryRun) return this.finish("succeeded", "Dry run: nothing downloaded", plan, kept);
+    Object.assign(this.tally, { droppedUnits: dropped.length, droppedFiles: dropped.reduce((n, u) => n + u.files.length, 0) });
+    if (kept.length === 0) return this.wrapUp(listing, dryRun, "skipped_space", `Not enough free space for ${dropped.length} unit(s)`, plan);
+    if (dryRun) return this.wrapUp(listing, dryRun, "succeeded", "Dry run: nothing downloaded", plan, kept);
     await this.transferAll(kept, session);
-    return this.finish(this.terminalState(), "Run finished", plan, kept);
+    return this.wrapUp(listing, dryRun, this.terminalState(), "Run finished", plan, kept);
+  }
+
+  private async wrapUp(listing: RemoteEntry[], dryRun: boolean, requested: RunState, summary: string, plan: Plan, kept?: PlannedUnit[]): Promise<RunState> {
+    const { failedUnits, droppedUnits } = this.tally;
+    await runMirror({
+      job: this.job, runId: this.runId, stores: this.deps.stores, listing, now: this.now, signal: this.signal,
+      warn: (m) => { this.postWarnings.push(m); this.note("mirror", "warn", m); }, note: (m, meta) => this.note("mirror", "info", m, meta),
+    }, dryRun, failedUnits === 0 && droppedUnits === 0);
+    return this.finish(requested === "succeeded" && this.postWarnings.length > 0 ? "partial" : requested, summary, plan, kept);
   }
 
   private async listRemote(session: EngineSession): Promise<RemoteEntry[]> {
@@ -126,11 +137,13 @@ class Execution {
 
   private slots: Slots | undefined;
 
-  private plan(listing: RemoteEntry[], dryRun: boolean): Plan {
+  private async plan(listing: RemoteEntry[], dryRun: boolean): Promise<Plan> {
     const { stores } = this.deps;
+    const ledger = stores.ledger.active(this.job.id);
+    const missingLocal = this.job.mode === "mirror" ? await findMissingLocal(this.job.localPath, ledger, listing) : undefined;
     const plan = planRun({
-      job: this.job, listing, ledger: stores.ledger.active(this.job.id), observations: stores.observations.all(this.job.id),
-      completedUnits: stores.ledger.completedUnits(this.job.id), now: this.now(),
+      job: this.job, listing, ledger, observations: stores.observations.all(this.job.id),
+      completedUnits: stores.ledger.completedUnits(this.job.id), now: this.now(), ...(missingLocal ? { missingLocal } : {}),
     });
     for (const w of plan.warnings) this.note("plan", "warn", w);
     if (dryRun) return plan;

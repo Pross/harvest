@@ -85,10 +85,11 @@ describe("job form", () => {
     expect(body).toMatch(/<option value="top_dir" selected/);
   });
 
-  it("shows Phase 2 options disabled and the browse and preview hooks", async () => {
+  it("offers mirror mode with its confirmation field, plus the browse and preview hooks", async () => {
     const c = await setup();
     const body = (await get(c, "/jobs/new")).body;
-    expect(body).toMatch(/<option value="mirror" disabled>Mirror \(Phase 2\)/);
+    expect(body).toMatch(/<option value="mirror">Mirror \(deletes local files/);
+    expect(body).toContain('name="mirror_confirm"');
     expect(body).toMatch(/<option value="delete_after_days">/);
     expect(body).toMatch(/<option value="move">/);
     expect(body).toContain('name="after_days"');
@@ -204,9 +205,9 @@ describe("job create", () => {
     expect(job(c)?.excludeGlobs).toEqual([]);
   });
 
-  it("rejects mirror mode and unknown post-sync actions", async () => {
+  it("rejects unknown modes and unknown post-sync actions", async () => {
     const c = await setup();
-    expect((await create(c, { mode: "mirror" })).body).toContain("Phase 2");
+    expect((await create(c, { mode: "sync-everything" })).body).toContain("Choose copy new files or mirror");
     const res = await create(c, { after_sync: "archive" });
     expect(res.statusCode).toBe(400);
     expect(res.body).toContain("Choose keep, delete");
@@ -527,5 +528,73 @@ describe("list, run now, toggle", () => {
     }
     expect(c.trigger).not.toHaveBeenCalled();
     expect(job(c)).toBeDefined();
+  });
+});
+
+describe("mirror mode", () => {
+  const mirror = (o: Record<string, string> = {}) => ({ mode: "mirror", mirror_confirm: "Movies", ...o });
+
+  it("needs the job name typed in before a job can be created in mirror mode", async () => {
+    const c = await setup();
+    const none = await create(c, { mode: "mirror" });
+    expect(none.statusCode).toBe(400);
+    expect(none.body).toContain("Type the job name here to confirm");
+    expect((await create(c, mirror({ mirror_confirm: "movies2" }))).statusCode).toBe(400);
+    expect(job(c)).toBeUndefined();
+    const ok = await create(c, mirror());
+    expect(ok.statusCode).toBe(303);
+    expect(job(c)).toMatchObject({ mode: "mirror", mirrorArmedAt: null });
+    expect(flashOf(ok)).toContain("not armed");
+  });
+
+  it("only works with after-sync keep", async () => {
+    const c = await setup();
+    for (const after_sync of ["delete", "delete_after_days", "move"]) {
+      const res = await create(c, mirror({ after_sync, after_days: "5", move_to: "/done" }));
+      expect(res.statusCode).toBe(400);
+      expect(res.body).toContain("Mirror mode needs");
+    }
+    expect(job(c)).toBeUndefined();
+  });
+
+  it("asks for the name again only when switching an existing job to mirror", async () => {
+    const c = await setup();
+    await create(c);
+    const refused = await post(c, "/jobs/1", payload(c, { mode: "mirror" }));
+    expect(refused.statusCode).toBe(400);
+    expect(job(c)?.mode).toBe("copy_new");
+    expect((await post(c, "/jobs/1", payload(c, mirror()))).statusCode).toBe(303);
+    expect(job(c)?.mode).toBe("mirror");
+    expect((await post(c, "/jobs/1", payload(c, { mode: "mirror", retries: "4" }))).statusCode).toBe(303);
+    expect(job(c)?.retries).toBe(4);
+  });
+
+  it("keeps the job armed across harmless edits and disarms it when mode or local path change", async () => {
+    const c = await setup();
+    await create(c, mirror());
+    c.h.deps.stores.jobs.update(1, { mirrorArmedAt: 123 });
+    await post(c, "/jobs/1", payload(c, { mode: "mirror", retries: "5", settle_seconds: "10" }));
+    expect(job(c)?.mirrorArmedAt).toBe(123);
+    await post(c, "/jobs/1", payload(c, { mode: "mirror", local_path: path.join(root, "other") }));
+    expect(job(c)).toMatchObject({ mirrorArmedAt: null, localPath: path.join(root, "other") });
+    c.h.deps.stores.jobs.update(1, { mirrorArmedAt: 456 });
+    await post(c, "/jobs/1", payload(c, { mode: "copy_new", local_path: path.join(root, "other") }));
+    expect(job(c)).toMatchObject({ mode: "copy_new", mirrorArmedAt: null });
+  });
+
+  it("disarms when the remote path changes, together with the ledger reset", async () => {
+    const c = await setup();
+    await create(c, mirror());
+    c.h.deps.stores.jobs.update(1, { mirrorArmedAt: 789 });
+    await post(c, "/jobs/1", payload(c, { mode: "mirror", remote_path: "/elsewhere", confirm_ledger_reset: "on" }));
+    expect(job(c)).toMatchObject({ remotePath: "/elsewhere", mirrorArmedAt: null });
+  });
+
+  it("shows the arming state on the job page", async () => {
+    const c = await setup();
+    await create(c, mirror());
+    expect((await get(c, "/jobs/1")).body).toContain("not armed: run a dry run");
+    c.h.deps.stores.jobs.update(1, { mirrorArmedAt: Date.now() });
+    expect((await get(c, "/jobs/1")).body).toMatch(/mirror \(armed /);
   });
 });

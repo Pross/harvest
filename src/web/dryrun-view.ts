@@ -1,5 +1,6 @@
 import type { JobConfig } from "../domain.js";
 import { DRY_NO_SPACE, DRY_PLANNED, DRY_SKIPPED, type DrySummary } from "../run/dry-run.js";
+import { DRY_DELETE, type DryMirrorSummary } from "../run/mirror-sweep.js";
 import type { RunFileRow } from "../store/index.js";
 import { formatBytes } from "./format.js";
 
@@ -54,7 +55,14 @@ function unitGroups(planned: RunFileRow[]) {
 }
 
 /** Everything the dry-run partial renders: run_files rows (states planned / would_skip, capped) plus the true totals when recorded. */
-export function dryRunView(files: RunFileRow[], job: Pick<JobConfig, "afterSync"> | undefined, summary?: DrySummary) {
+function mirrorView(files: RunFileRow[], job: Pick<JobConfig, "mode"> | undefined, mirror: DryMirrorSummary | undefined) {
+  if (job?.mode !== "mirror") return null;
+  const dels = files.filter((f) => f.state === DRY_DELETE);
+  const count = Math.max(dels.length, mirror?.wouldDelete ?? 0);
+  return { count, refused: mirror?.refused ?? null, shown: dels.slice(0, SHOWN_PLANNED).map((f) => f.remotePath), hidden: Math.max(0, count - SHOWN_PLANNED) };
+}
+
+export function dryRunView(files: RunFileRow[], job: Pick<JobConfig, "afterSync" | "mode"> | undefined, summary?: DrySummary, mirror?: DryMirrorSummary) {
   const planned = files.filter((f) => f.state === DRY_PLANNED);
   const deletes = job?.afterSync === "delete";
   const plannedCount = Math.max(planned.length, summary?.plannedFiles ?? 0);
@@ -65,6 +73,6 @@ export function dryRunView(files: RunFileRow[], job: Pick<JobConfig, "afterSync"
     skips: skipGroups(files.filter((f) => f.state === DRY_SKIPPED), summary?.skipCounts), deletes,
     wouldDelete: deletes ? planned.slice(0, SHOWN_PLANNED).map((f) => f.remotePath) : [],
     wouldDeleteCount: deletes ? plannedCount : 0, shownPlanned: Math.min(planned.length, SHOWN_PLANNED),
-    hiddenPlanned: Math.max(0, plannedCount - SHOWN_PLANNED),
+    hiddenPlanned: Math.max(0, plannedCount - SHOWN_PLANNED), mirror: mirrorView(files, job, mirror),
   };
 }

@@ -21,6 +21,16 @@
   <h3>Would delete from the remote after verified copy</h3>
   <ul class="timeline"><% for (const p of d.wouldDelete) { %><li><code><%= p %></code></li><% } %></ul>
   <% } %>
+  <% if (d.mirror) { %>
+  <h3>Mirror: would delete locally</h3>
+  <% if (d.mirror.refused) { %><div class="banner banner-warn"><%= d.mirror.refused %>. A real run would delete nothing.</div>
+  <% } else if (d.mirror.count === 0) { %><p class="muted">No local files would be deleted.</p>
+  <% } else { %>
+  <p>A real run would delete <strong><%= d.mirror.count %></strong> local file(s) that Harvest placed and that are no longer on the remote. Files Harvest did not place are never deleted. This dry run has armed the job for real runs.</p>
+  <ul class="timeline"><% for (const p of d.mirror.shown) { %><li><code><%= p %></code></li><% } %></ul>
+  <% if (d.mirror.hidden > 0) { %><p class="muted"><%= d.mirror.hidden %> more are not listed.</p><% } %>
+  <% } %>
+  <% } %>
   <h3>Would skip</h3>
   <% if (d.skips.length === 0) { %><p class="muted">Nothing skipped.</p><% } %>
   <% for (const g of d.skips) { %>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DRY_ROW_CAP, DRY_SUMMARY_CATEGORY, recordDryRun, type DrySummary } from "../../src/run/dry-run.js";
 import type { PlannedUnit, SkippedEntry } from "../../src/planner/types.js";
+import { DRY_DELETE } from "../../src/run/mirror-sweep.js";
 import { dryRunView } from "../../src/web/dryrun-view.js";
 import { setup } from "../store/helpers.js";
 
@@ -34,5 +35,22 @@ describe("recordDryRun", () => {
     expect(() => recordDryRun(stores, runId, skips(2), [bad], [])).toThrow();
     expect(stores.runs.filesForRun(runId)).toEqual([]);
     expect(stores.activity.list({ runId, limit: 5 })).toEqual([]);
+  });
+});
+
+describe("dryRunView mirror section", () => {
+  const row = (remotePath: string, state: string) => ({ id: 1, runId: 1, unitKey: "", remotePath, size: 5, state, bytes: 0, startedAt: null, finishedAt: null, attempts: 0, error: null });
+
+  it("is absent for copy jobs and lists would-delete files for mirror jobs", () => {
+    const files = [row("gone/a", DRY_DELETE), row("gone/b", DRY_DELETE)];
+    expect(dryRunView(files, { afterSync: "keep", mode: "copy_new" }).mirror).toBeNull();
+    const view = dryRunView(files, { afterSync: "keep", mode: "mirror" });
+    expect(view.mirror).toEqual({ count: 2, refused: null, shown: ["gone/a", "gone/b"], hidden: 0 });
+    expect(view.plannedCount).toBe(0);
+  });
+
+  it("prefers the true count and carries a refusal", () => {
+    const view = dryRunView([row("x", DRY_DELETE)], { afterSync: "keep", mode: "mirror" }, undefined, { wouldDelete: 9000, refused: "too many" });
+    expect(view.mirror).toMatchObject({ count: 9000, refused: "too many", hidden: 8500 });
   });
 });
