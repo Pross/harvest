@@ -4,7 +4,7 @@ import { JobBusyError } from "../store/index.js";
 import type { TriggerResult } from "../run/manager-types.js";
 import { validateSchedule } from "../schedule/schedule-expr.js";
 import type { AppDeps } from "./deps.js";
-import { formatBytes, formatTime } from "./format.js";
+import { formatAbsolute, formatBytes, formatTime } from "./format.js";
 import { redirectTo, render, renderFragment, runHook, savedFlash, type FlashKind } from "./helpers.js";
 import { bodyStrings, parseId, type FormErrors } from "./host-schemas.js";
 import {
@@ -44,7 +44,7 @@ const MIRROR_SAVED = "Job saved. Mirror mode is not armed yet: run a dry run and
 
 function modeText(j: JobConfig): string {
   if (j.mode !== "mirror") return j.mode;
-  return j.mirrorArmedAt === null ? "mirror (not armed: run a dry run before the first real run)" : `mirror (armed ${formatTime(j.mirrorArmedAt)})`;
+  return j.mirrorArmedAt === null ? "mirror (not armed: run a dry run before the first real run)" : `mirror (armed ${formatAbsolute(j.mirrorArmedAt)})`;
 }
 
 function summaryRows(deps: AppDeps, j: JobConfig): [string, string][] {

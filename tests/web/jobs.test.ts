@@ -594,7 +594,9 @@ describe("mirror mode", () => {
     const c = await setup();
     await create(c, mirror());
     expect((await get(c, "/jobs/1")).body).toContain("not armed: run a dry run");
-    c.h.deps.stores.jobs.update(1, { mirrorArmedAt: Date.now() });
-    expect((await get(c, "/jobs/1")).body).toMatch(/mirror \(armed /);
+    c.h.deps.stores.jobs.update(1, { mirrorArmedAt: 1_700_000_000_000 });
+    const body = (await get(c, "/jobs/1")).body;
+    expect(body).toContain("mirror (armed 2023-11-14 22:13:20 UTC)");
+    expect(body).not.toContain("&lt;time");
   });
 });
