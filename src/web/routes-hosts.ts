@@ -44,7 +44,7 @@ const nameTaken = (deps: AppDeps, name: string, exceptId: number | null): boolea
  * Config for a test from the posted values. Stored secrets are reused only for the same host/port/username and only when
  * they decrypt; otherwise (target changed, APP_SECRET changed) the secret must be posted again. Never rendered.
  */
-function configFromForm(deps: AppDeps, body: unknown): { cfg: HostConfig } | { error: string } {
+export function configFromForm(deps: AppDeps, body: unknown): { cfg: HostConfig } | { error: string } {
   const cur = parseId(bodyStrings(body)["id"] ?? "");
   const pub = cur ? deps.stores.hosts.getPublic(cur) : undefined;
   const loaded = pub ? loadHostConfig(deps, pub.id) : null;

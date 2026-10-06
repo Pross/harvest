@@ -55,6 +55,17 @@ Self-hosted seedbox to homelab sync. Pulls files from FTP/FTPS/SFTP servers to l
 - **Remote mtime reliability:** FTP servers often return unreliable mtimes (TLS session timezone issues); settle uses Harvest's observation clock (size + change time).
 - **rsync/SCP:** deferred to Phase 3 (out of scope for Phase 2 Wave 1).
 
+## Setting up an FTP or FTPS host
+
+On the host form, **Detect best settings** probes an FTP server with the values you have typed (nothing is saved) and tells you what works:
+
+- **Connection method, most secure first:** FTPS with a verified certificate, then FTPS accepting any certificate, then plain FTP. It never suggests less security than the protocol you already chose, so a host set to FTPS is not downgraded to plain FTP. If only plain FTP works, you are told that your password and files travel unencrypted.
+- **Modification times:** whether the server reports them, which decides whether Trust mtime is useful on a job.
+- **Resume:** it reads a few KiB from the middle of a file (the same ranged read downloads use) and compares them with the same bytes read from the start.
+- **Simultaneous logins:** it holds up to 6 open against one large file and recommends a cap with headroom for Max connections. This needs a file of at least 2 MiB on the server; without one it says "not measured" and keeps your value.
+
+**Apply these settings** fills in the form, and nothing changes until you save. The probe is read-only: it lists, reads a little of one file and opens a few connections, so don't run it while a sync is using the server's connection limit. It is for FTP and FTPS; SFTP is always encrypted, so use Test connection there.
+
 ## Webhooks and Torrent Client Integration
 
 After creating a job, generate an API token on the **Tokens** page. The UI displays copy-paste curl snippets for qBittorrent, rTorrent, and Deluge:

@@ -1,0 +1,25 @@
+<% const r = it.result; %>
+<div class="card probe-result">
+<% if (it.error) { %>
+  <div class="banner banner-warn" role="alert"><%= it.error %></div>
+<% } else { %>
+  <h3>Connection methods tried, most secure first</h3>
+  <ul class="bare-list"><% for (const s of r.steps) { %><li><span class="badge"><%= s.ok ? "works" : "failed" %></span> <strong><%= s.label %></strong> <span class="muted"><%= s.detail %></span></li><% } %></ul>
+  <% if (!r.ok) { %>
+  <% for (const n of r.notes) { %><div class="banner banner-warn" role="alert"><%= n %></div><% } %>
+  <% } else { %>
+  <% if (r.secure) { %><div class="banner banner-ok" role="status">Best working method: <strong><%= r.steps[r.steps.length - 1].label %></strong>.</div>
+  <% } else { %><div class="banner banner-warn" role="alert"><strong>Only plain FTP works.</strong> Your password and files are not encrypted.</div><% } %>
+  <ul class="bare-list">
+    <li>Modification times: <strong><%= r.mtime === null ? "unknown (nothing listed)" : r.mtime ? "reported" : "not reported" %></strong><% if (r.trustMtime) { %> <span class="muted">(you can tick Trust mtime on jobs)</span><% } %></li>
+    <li>Resume after a dropped connection: <strong><%= r.resume === "ok" ? "works" : r.resume === "failed" ? "does not work" : "not tested (no file of at least 8 KiB found)" %></strong></li>
+    <li>Simultaneous logins that worked: <strong><%= r.connections === null ? "not measured" : r.connections %></strong> <span class="muted"><%= r.connections === null ? "(needs a file of at least 2 MiB on the server)" : "(tried up to 6)" %></span></li>
+  </ul>
+  <% for (const n of r.notes) { %><div class="banner banner-warn"><%= n %></div><% } %>
+  <p><button type="button" class="primary" data-apply-probe
+    data-protocol="<%= r.recommend.protocol %>" data-port="<%= r.recommend.port %>"
+    data-self-signed="<%= r.recommend.tlsAcceptSelfSigned ? '1' : '' %>" data-max-connections="<%= r.recommend.maxConnections %>">Apply these settings</button>
+    <span class="muted">Sets protocol, port, certificate handling and max connections (<%= r.recommend.maxConnections %>) in the form above. Nothing is saved until you click Save host.</span></p>
+  <% } %>
+<% } %>
+</div>

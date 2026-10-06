@@ -1,0 +1,5 @@
+<section class="panel">
+  <h2>Detect best settings</h2>
+  <%~ include("host-probe-result", it) %>
+  <p><a href="/hosts">All hosts</a></p>
+</section>
