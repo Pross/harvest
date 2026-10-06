@@ -100,7 +100,8 @@ const jobSchema = z.object({
   host_id: whole(1, 999_999_999).catch(0),
   remote_path: pathField("Remote path"),
   local_path: pathField("Local path"),
-  mode: z.enum(["copy_new"], { error: "Mirror mode arrives in Phase 2" }).default("copy_new"),
+  mode: z.enum(["copy_new", "mirror"], { error: "Choose copy new files or mirror" }).default("copy_new"),
+  mirror_confirm: text,
   unit_mode: z.enum(["top_dir", "file"], { error: "Choose top_dir or file" }).default("top_dir"),
   after_sync: z.enum(["keep", "delete", "delete_after_days", "move"], { error: "Choose keep, delete, delete after N days or move" }).default("keep"),
   after_days: text, move_to: text,
@@ -119,7 +120,7 @@ const jobSchema = z.object({
 
 export type JobFormData = Pick<JobConfig, "name" | "hostId" | "remotePath" | "localPath" | "mode" | "unitMode" | "afterSync" | "afterDays" | "moveTo" | "verify" |
   "settleSeconds" | "minAgeSeconds" | "minSize" | "maxSize" | "includeGlobs" | "excludeGlobs" | "trustMtime" | "enabled" | "bwlimitBps" |
-  "parallelFiles" | "rangeStreams" | "retries" | "minFreeBytes" | "scheduleKind" | "scheduleExpr" | "changedPolicy"> & { confirmLedgerReset: boolean };
+  "parallelFiles" | "rangeStreams" | "retries" | "minFreeBytes" | "scheduleKind" | "scheduleExpr" | "changedPolicy"> & { confirmLedgerReset: boolean; mirrorConfirm: string };
 export type JobParse = { ok: true; data: JobFormData } | { ok: false; errors: FormErrors };
 
 const trimSlash = (p: string): string => (p.length > 1 ? p.replace(/\/+$/, "") || "/" : p);
@@ -150,7 +151,7 @@ export function parseJobForm(body: unknown): JobParse {
     maxSize: d.max_size, includeGlobs: d.include_globs, excludeGlobs: d.exclude_globs, trustMtime: d.trust_mtime, enabled: d.enabled,
     bwlimitBps: d.bwlimit, parallelFiles: d.parallel_files, rangeStreams: d.range_streams, retries: d.retries, minFreeBytes: d.min_free_bytes,
     scheduleKind: d.schedule_kind, scheduleExpr: d.schedule_kind === "manual" ? null : d.schedule_expr, changedPolicy: d.changed_policy,
-    confirmLedgerReset: d.confirm_ledger_reset,
+    confirmLedgerReset: d.confirm_ledger_reset, mirrorConfirm: d.mirror_confirm.trim(),
   } };
 }
 
@@ -163,6 +164,7 @@ export function crossValidate(d: JobFormData, host: HostPublic | undefined, name
   if (!host) errors["host_id"] = "Choose a host";
   if (nameTaken) errors["name"] = "A job with this name already exists";
   if (d.verify === "checksum" && hasNoHashes(host)) errors["verify"] = "Checksum verification is not available: FTP and FTPS servers provide no file hashes. Use size.";
+  if (d.mode === "mirror" && d.afterSync !== "keep") errors["after_sync"] = "Mirror mode needs \"Keep remote files\": if the remote file disappears after syncing, the mirror would delete the local copy";
   if (d.minSize !== null && d.maxSize !== null && d.minSize > d.maxSize) errors["max_size"] = "Maximum size must not be smaller than the minimum size";
   const sched = validateSchedule(d.scheduleKind, d.scheduleExpr, tz);
   if (!sched.ok) errors["schedule_expr"] = sched.error;
@@ -171,7 +173,7 @@ export function crossValidate(d: JobFormData, host: HostPublic | undefined, name
 
 const KEYS = ["name", "host_id", "remote_path", "local_path", "mode", "unit_mode", "after_sync", "after_days", "move_to", "verify", "settle_seconds", "min_age_seconds",
   "min_size", "max_size", "include_globs", "exclude_globs", "parallel_files", "range_streams", "retries", "min_free_bytes", "bwlimit",
-  "schedule_kind", "schedule_expr", "changed_policy"];
+  "schedule_kind", "schedule_expr", "changed_policy", "mirror_confirm"];
 
 /** Submitted values for redisplay. */
 export function jobValues(body: unknown): Record<string, string> {
@@ -189,7 +191,7 @@ export function jobToValues(j: JobConfig): Record<string, string> {
     trust_mtime: j.trustMtime ? "on" : "", enabled: j.enabled ? "on" : "", confirm_ledger_reset: "", parallel_files: String(j.parallelFiles),
     range_streams: String(j.rangeStreams), retries: String(j.retries), min_free_bytes: sizeToInput(j.minFreeBytes),
     bwlimit: j.bwlimitBps === null ? "" : `${sizeToInput(j.bwlimitBps)}/s`, schedule_kind: j.scheduleKind, schedule_expr: j.scheduleExpr ?? "",
-    changed_policy: j.changedPolicy,
+    changed_policy: j.changedPolicy, mirror_confirm: "",
   };
 }
 
@@ -197,5 +199,5 @@ export const NEW_JOB_VALUES: Record<string, string> = {
   name: "", host_id: "", remote_path: "", local_path: "", mode: "copy_new", unit_mode: "top_dir", after_sync: "keep", after_days: "7", move_to: "", verify: "size",
   settle_seconds: "300", min_age_seconds: "0", min_size: "", max_size: "", include_globs: "", exclude_globs: DEFAULT_EXCLUDES.join("\n"),
   trust_mtime: "", enabled: "on", confirm_ledger_reset: "", parallel_files: "2", range_streams: "4", retries: "3", min_free_bytes: "",
-  bwlimit: "", schedule_kind: "manual", schedule_expr: "", changed_policy: "skip",
+  bwlimit: "", schedule_kind: "manual", schedule_expr: "", changed_policy: "skip", mirror_confirm: "",
 };

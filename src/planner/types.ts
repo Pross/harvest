@@ -24,6 +24,8 @@ export type PlannerInput = {
   observations: ReadonlyMap<string, Observation>;
   /** Unit keys already completed (ledger_units), used for pack-gains-a-file detection. */
   completedUnits: ReadonlySet<string>;
+  /** Mirror mode: ledger files still on the remote whose local copy is gone; they are downloaded again. Ignored otherwise. */
+  missingLocal?: ReadonlySet<string>;
   now: number;
 };
 

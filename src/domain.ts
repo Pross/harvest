@@ -56,6 +56,8 @@ export type JobConfig = {
   scheduleKind: ScheduleKind;
   scheduleExpr: string | null;
   changedPolicy: ChangedPolicy;
+  /** Mirror mode only: when a dry run last armed the job for real runs. Null means a real run is refused. */
+  mirrorArmedAt: number | null;
 };
 
 export type RunState =

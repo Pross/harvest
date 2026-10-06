@@ -13,7 +13,7 @@ export function job(over: Partial<JobConfig> = {}): JobConfig {
     verify: "size", settleSeconds: 60, minAgeSeconds: 0, minSize: null, maxSize: null,
     includeGlobs: [], excludeGlobs: [...DEFAULT_EXCLUDES], trustMtime: false, rerunPending: false,
     bwlimitBps: null, parallelFiles: 2, rangeStreams: 4, retries: 3, minFreeBytes: null,
-    scheduleKind: "manual", scheduleExpr: null, changedPolicy: "skip", ...over,
+    scheduleKind: "manual", scheduleExpr: null, changedPolicy: "skip", mirrorArmedAt: null, ...over,
   };
 }
 

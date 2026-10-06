@@ -4,6 +4,7 @@ import { TERMINAL_RUN_STATES, type RunState } from "../domain.js";
 import type { ActivityRow, RunFileRow, RunRow } from "../store/index.js";
 import type { AppDeps } from "./deps.js";
 import { DRY_SUMMARY_CATEGORY, type DrySummary } from "../run/dry-run.js";
+import { DRY_MIRROR_CATEGORY, type DryMirrorSummary } from "../run/mirror-sweep.js";
 import { dryRunView } from "./dryrun-view.js";
 import { formatBytes, formatDuration, formatSpeed, formatTime } from "./format.js";
 import { redirectTo, render, renderFragment } from "./helpers.js";
@@ -82,11 +83,16 @@ function drySummary(deps: AppDeps, run: RunRow): DrySummary | undefined {
   return row ? (row.meta as DrySummary) : undefined;
 }
 
+function dryMirror(deps: AppDeps, run: RunRow): DryMirrorSummary | undefined {
+  const row = deps.stores.activity.list({ runId: run.id, category: DRY_MIRROR_CATEGORY, limit: 1 })[0];
+  return row ? (row.meta as DryMirrorSummary) : undefined;
+}
+
 function detailData(deps: AppDeps, run: RunRow, stateFilter: string | undefined) {
   const files = deps.stores.runs.filesForRun(run.id);
   const shown = files.filter((f) => stateFilter === undefined || stateFilter === "" || f.state === stateFilter);
   return {
-    run: runView(run, jobNames(deps), nowOf()), dryRun: run.dryRun ? dryRunView(files, deps.stores.jobs.get(run.jobId), drySummary(deps, run)) : null, timeline: timeline(deps, run),
+    run: runView(run, jobNames(deps), nowOf()), dryRun: run.dryRun ? dryRunView(files, deps.stores.jobs.get(run.jobId), drySummary(deps, run), dryMirror(deps, run)) : null, timeline: timeline(deps, run),
     files: shown.slice(0, FILE_CAP).map(fileView), hiddenFiles: Math.max(0, shown.length - FILE_CAP),
     fileStates: [...new Set(files.map((f) => f.state))].sort(), fileFilter: stateFilter ?? "", totalFiles: files.length,
   };

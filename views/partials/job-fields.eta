@@ -36,8 +36,13 @@
 <div class="grid-2">
   <div>
     <label for="mode">Mode</label>
-    <select id="mode" name="mode"><option value="copy_new" selected>Copy new files only</option><option value="mirror" disabled>Mirror (Phase 2)</option></select>
+    <select id="mode" name="mode"><option value="copy_new"<% if (v.mode !== "mirror") { %> selected<% } %>>Copy new files only</option><option value="mirror"<% if (v.mode === "mirror") { %> selected<% } %>>Mirror (deletes local files removed from the remote)</option></select>
     <% if (e.mode) { %><div class="field-error"><%= e.mode %></div><% } %>
+    <div class="hint">Mirror deletes only files Harvest placed, after a successful run and a reviewed dry run, and downloads files you deleted locally again. It needs "Keep remote files".</div>
+    <label for="mirror_confirm">Type the job name to enable mirror</label>
+    <input type="text" id="mirror_confirm" name="mirror_confirm" value="<%= v.mirror_confirm %>" autocomplete="off">
+    <% if (e.mirror_confirm) { %><div class="field-error"><%= e.mirror_confirm %></div><% } %>
+    <% if (v.mode === "mirror") { %><div class="banner banner-warn">Mirror mode deletes local files that are no longer on the remote.</div><% } %>
   </div>
   <div>
     <label for="unit_mode">Unit mode</label>

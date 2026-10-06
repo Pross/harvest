@@ -1,4 +1,3 @@
-import { PermanentError } from "../errors.js";
 import type { JobConfig } from "../domain.js";
 import { isInProgress, makeFileFilter } from "./filters.js";
 import { sanitizeRemotePath } from "./paths.js";
@@ -55,6 +54,7 @@ function applyLedger(files: PlannedFile[], input: PlannerInput, skipped: Skipped
   return files.filter((f) => {
     const row = input.ledger.get(f.remotePath);
     if (!row) return true;
+    if (input.job.mode === "mirror" && input.missingLocal?.has(f.remotePath)) return true;
     if (input.job.changedPolicy === "resync" && row.size !== f.size) return true;
     skipped.push({ remotePath: f.remotePath, reason: "already_synced" });
     return false;
@@ -84,7 +84,6 @@ function buildUnits(files: PlannedFile[], input: PlannerInput, obs: Map<string, 
 /** The pure planner: listing + ledger + observations + rules -> units, skips, observation upserts. */
 export function planRun(input: PlannerInput): Plan {
   const { job, now } = input;
-  if (job.mode === "mirror") throw new PermanentError("mirror mode is not implemented in phase 1");
   const skipped: SkippedEntry[] = [];
   const warnings: string[] = [];
   const sane = sanitizeListing(input, skipped);
