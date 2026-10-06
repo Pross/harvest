@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { DRY_DELETE, DRY_MIRROR_CATEGORY, type DryMirrorSummary } from "../../src/run/mirror-sweep.js";
+import { ALLOW_LARGE_TTL_MS, DRY_DELETE, DRY_MIRROR_CATEGORY, type DryMirrorSummary } from "../../src/run/mirror-sweep.js";
 import { makeData } from "../helpers/fake-session.js";
 import { makeHarness, REMOTE_ROOT } from "./executor-harness.js";
 
@@ -167,5 +167,64 @@ describe("copy mode is unchanged", () => {
     expect(existsSync(at(h, "a.bin"))).toBe(false);
     expect(existsSync(at(h, "b.bin"))).toBe(true);
     expect(h.activity().some((a) => a.category === "mirror")).toBe(false);
+  });
+});
+
+describe("mirror: allowing one large delete", () => {
+  it("deletes everything that left an emptied remote, once, and the run consumes the permission", async () => {
+    const h = await synced(["a.bin", "b.bin", "c.bin"]);
+    h.session.files.clear();
+    h.stores.jobs.update(h.jobId, { mirrorAllowLargeAt: h.clock.t });
+    const r = await h.exec();
+    expect(r.state).toBe("succeeded");
+    for (const f of ["a.bin", "b.bin", "c.bin"]) expect(existsSync(at(h, f))).toBe(false);
+    expect(h.stores.ledger.active(h.jobId).size).toBe(0);
+    expect(h.jobRow().mirrorAllowLargeAt).toBeNull();
+  });
+
+  it("is used up by one run: a second emptied remote is refused again", async () => {
+    const h = await synced(["a.bin", "b.bin"]);
+    h.stores.jobs.update(h.jobId, { mirrorAllowLargeAt: h.clock.t });
+    await h.exec();
+    expect(h.jobRow().mirrorAllowLargeAt).toBeNull();
+    h.session.set("c.bin", makeData(3000, 9));
+    await h.settled();
+    h.session.files.clear();
+    const r = await h.exec();
+    expect(r.state).toBe("partial");
+    expect(existsSync(at(h, "c.bin"))).toBe(true);
+  });
+
+  it("expires after a day", async () => {
+    const h = await synced(["a.bin", "b.bin"]);
+    h.session.files.clear();
+    h.stores.jobs.update(h.jobId, { mirrorAllowLargeAt: h.clock.t - ALLOW_LARGE_TTL_MS - 1 });
+    const r = await h.exec();
+    expect(r.state).toBe("partial");
+    expect(existsSync(at(h, "a.bin"))).toBe(true);
+  });
+
+  it("is shown by a dry run but not consumed by it", async () => {
+    const h = await synced(["a.bin", "b.bin"]);
+    h.session.files.clear();
+    h.stores.jobs.update(h.jobId, { mirrorAllowLargeAt: h.clock.t });
+    const r = await h.exec({ dryRun: true });
+    const meta = h.stores.activity.list({ runId: r.runId, category: DRY_MIRROR_CATEGORY, limit: 1 })[0]!.meta as DryMirrorSummary;
+    expect(meta).toMatchObject({ wouldDelete: 2, refused: null, allowedLarge: true });
+    expect(h.jobRow().mirrorAllowLargeAt).toBe(h.clock.t);
+    expect(existsSync(at(h, "a.bin"))).toBe(true);
+  });
+
+  it("is kept when the sweep was skipped because a download was dropped", async () => {
+    const h = await synced(["a.bin", "b.bin"]);
+    h.session.set("big.bin", makeData(40_000, 9));
+    await h.exec();
+    h.clock.t += 5000;
+    h.session.files.delete(remote("a.bin"));
+    h.stores.jobs.update(h.jobId, { mirrorAllowLargeAt: h.clock.t });
+    h.deps.statfs = async () => ({ bavail: 100, bsize: 1 });
+    await h.exec();
+    expect(existsSync(at(h, "a.bin"))).toBe(true);
+    expect(h.jobRow().mirrorAllowLargeAt).not.toBeNull();
   });
 });

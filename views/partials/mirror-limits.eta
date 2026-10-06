@@ -1,0 +1,16 @@
+<% const a = it.mirrorAllow; %>
+<% if (it.job && it.job.mode === "mirror" && a) { %>
+<section class="panel">
+  <h2>Mirror safety limits</h2>
+  <p class="hint">A mirror run refuses to delete when the remote listing is empty, or when more than half of the synced files are gone: that usually means a wrong path or a server problem, not that you removed everything. If the remote really is empty, or you really removed those files, allow it once.</p>
+  <% if (a.active) { %>
+  <div class="banner banner-warn" role="status">The next real run may delete every local file that Harvest placed and that is gone from the remote, past the safety limits. Valid until <%= a.until %>, and used up by that run. Run a dry run first to see the list.</div>
+  <form method="post" action="/jobs/<%= it.job.id %>/mirror-disallow"><%~ it.csrfField %><button type="submit">Cancel this permission</button></form>
+  <% } else { %>
+  <form method="post" action="/jobs/<%= it.job.id %>/mirror-allow"><%~ it.csrfField %>
+    <label class="check"><input type="checkbox" name="confirm" value="on" required> I understand that the next real run may delete many local files</label>
+    <button type="submit" class="danger">Allow one large delete</button>
+  </form>
+  <% } %>
+</section>
+<% } %>

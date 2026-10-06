@@ -13,6 +13,7 @@ import { createStores, type Stores } from "./store/index.js";
 import { checkStoredSecrets } from "./web/host-config.js";
 import { registerActivityRoutes } from "./web/routes-activity.js";
 import { registerBrowseRoutes } from "./web/routes-browse.js";
+import { registerJobMirrorRoutes } from "./web/routes-job-mirror.js";
 import { registerHostProbeRoutes } from "./web/routes-host-probe.js";
 import { registerHostRoutes } from "./web/routes-hosts.js";
 import { registerDryRunRoutes } from "./web/routes-dryrun.js";
@@ -31,7 +32,7 @@ import type { AppDeps } from "./web/deps.js";
 export type App = { server: FastifyInstance; start(): Promise<void>; stop(): Promise<void> };
 
 const ROUTES = [
-  registerHostRoutes, registerHostProbeRoutes, registerJobRoutes, registerBrowseRoutes, registerRunsRoutes,
+  registerHostRoutes, registerHostProbeRoutes, registerJobRoutes, registerJobMirrorRoutes, registerBrowseRoutes, registerRunsRoutes,
   registerActivityRoutes, registerLedgerRoutes, registerSettingsRoutes, registerDryRunRoutes, registerHookRoutes, registerTokenRoutes, registerIntegrationRoutes, registerPostRoutes,
 ];
 

@@ -22,13 +22,13 @@ const FIELDS: readonly [keyof JobConfig, string, "str" | "num" | "bool" | "json"
   ["rerunPending", "rerun_pending", "bool"], ["bwlimitBps", "bwlimit_bps", "num"], ["parallelFiles", "parallel_files", "num"],
   ["rangeStreams", "range_streams", "num"], ["retries", "retries", "num"], ["minFreeBytes", "min_free_bytes", "num"],
   ["scheduleKind", "schedule_kind", "str"], ["scheduleExpr", "schedule_expr", "str"], ["changedPolicy", "changed_policy", "str"],
-  ["mirrorArmedAt", "mirror_armed_at", "num"],
+  ["mirrorArmedAt", "mirror_armed_at", "num"], ["mirrorAllowLargeAt", "mirror_allow_large_at", "num"],
 ];
 
 const DEFAULTS: Partial<JobConfig> = {
   enabled: true, mode: "copy_new", unitMode: "top_dir", afterSync: "keep", afterDays: null, moveTo: null, verify: "size",
   settleSeconds: 300, minAgeSeconds: 0, minSize: null, maxSize: null, includeGlobs: [], trustMtime: false, bwlimitBps: null,
-  parallelFiles: 2, rangeStreams: 4, retries: 3, minFreeBytes: null, scheduleKind: "manual", scheduleExpr: null, changedPolicy: "skip", mirrorArmedAt: null,
+  parallelFiles: 2, rangeStreams: 4, retries: 3, minFreeBytes: null, scheduleKind: "manual", scheduleExpr: null, changedPolicy: "skip", mirrorArmedAt: null, mirrorAllowLargeAt: null,
 };
 
 function parseGlobs(raw: unknown, col: string): string[] {

@@ -51,4 +51,21 @@ describe("planMirrorDeletes", () => {
     const plan = planMirrorDeletes([file(nfc.normalize("NFD"))], ledgerMap([led(nfc)]));
     expect(plan.deletes).toEqual([]);
   });
+
+  it("with an explicit allowance, deletes even when the listing is empty or most of the ledger is gone", () => {
+    const paths = many(30);
+    const all = planMirrorDeletes([], ledgerMap(paths.map((p) => led(p))), true);
+    expect(all.refused).toBeNull();
+    expect(all.deletes).toHaveLength(30);
+    const most = planMirrorDeletes(paths.slice(0, 5).map((p) => file(p)), ledgerMap(paths.map((p) => led(p))), true);
+    expect(most.refused).toBeNull();
+    expect(most.deletes).toHaveLength(25);
+  });
+
+  it("the allowance never widens the candidates beyond the ledger, and refusals point at it", () => {
+    expect(planMirrorDeletes([file("x")], new Map(), true)).toEqual({ deletes: [], refused: null });
+    expect(planMirrorDeletes([], ledgerMap([led("a")])).refused).toMatch(/allow one large delete/);
+    const paths = many(30);
+    expect(planMirrorDeletes([file(paths[0]!)], ledgerMap(paths.map((p) => led(p)))).refused).toMatch(/allow one large delete/);
+  });
 });
