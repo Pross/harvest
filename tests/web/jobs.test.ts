@@ -541,6 +541,8 @@ describe("mirror mode", () => {
     expect(none.body).toContain("Type the job name here to confirm");
     expect((await create(c, mirror({ mirror_confirm: "movies2" }))).statusCode).toBe(400);
     expect(job(c)).toBeUndefined();
+    expect((await create(c, mirror({ mirror_confirm: "  movies " }))).statusCode).toBe(303);
+    c.h.deps.stores.jobs.delete(1);
     const ok = await create(c, mirror());
     expect(ok.statusCode).toBe(303);
     expect(job(c)).toMatchObject({ mode: "mirror", mirrorArmedAt: null });
@@ -555,6 +557,32 @@ describe("mirror mode", () => {
       expect(res.body).toContain("Mirror mode needs");
     }
     expect(job(c)).toBeUndefined();
+  });
+
+  it("says at the top of the page that a rejected mirror save changed nothing, and why", async () => {
+    const c = await setup();
+    await create(c);
+    const noName = await post(c, "/jobs/1", payload(c, { mode: "mirror" }));
+    expect(noName.statusCode).toBe(400);
+    expect(noName.body.indexOf('id="form-errors"')).toBeGreaterThan(-1);
+    expect(noName.body.indexOf('id="form-errors"')).toBeLessThan(noName.body.indexOf("Webhook triggers"));
+    expect(noName.body).toContain("Not saved.");
+    expect(noName.body).toContain('href="#mirror_confirm"');
+    expect(noName.body).toContain("Type the job name here to confirm");
+    expect(job(c)?.mode).toBe("copy_new");
+    const afterSync = await post(c, "/jobs/1", payload(c, mirror({ after_sync: "delete" })));
+    expect(afterSync.body).toContain('href="#after_sync"');
+    expect(afterSync.body).toContain("Mirror mode needs");
+    const created = await create(c, { name: "Other", mode: "mirror" });
+    expect(created.body).toContain('id="form-errors"');
+  });
+
+  it("shows no error summary on a normal page or a successful save", async () => {
+    const c = await setup();
+    await create(c);
+    expect((await get(c, "/jobs/1")).body).not.toContain("form-errors");
+    expect((await get(c, "/jobs/new")).body).not.toContain("form-errors");
+    expect((await post(c, "/jobs/1", payload(c))).statusCode).toBe(303);
   });
 
   it("asks for the name again only when switching an existing job to mirror", async () => {

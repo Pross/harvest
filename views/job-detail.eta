@@ -1,3 +1,4 @@
+<%~ include("partials/form-errors", it) %>
 <section class="panel">
   <div class="toolbar">
     <h2><%= it.job.name %> <% if (!it.job.enabled) { %><span class="badge">disabled</span><% } %></h2>
