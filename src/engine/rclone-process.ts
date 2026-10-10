@@ -92,10 +92,11 @@ function launch(deps: ProcessDeps, remoteEnv: Record<string, string>, args: stri
   }
 }
 
-function capture(child: ChildProcess): { stdout: () => string; stderr: () => string } {
+/** `keepStdout: false` for streaming callers: stdout is the payload there and is piped on, never buffered here. */
+function capture(child: ChildProcess, keepStdout = true): { stdout: () => string; stderr: () => string } {
   const out: Buffer[] = [];
   let err = "";
-  child.stdout?.on("data", (c: Buffer) => out.push(c));
+  if (keepStdout) child.stdout?.on("data", (c: Buffer) => out.push(c));
   child.stderr?.on("data", (c: Buffer) => { if (err.length < MAX_STDERR) err += c.toString("utf8"); });
   return { stdout: () => Buffer.concat(out).toString("utf8"), stderr: () => err };
 }
@@ -151,7 +152,7 @@ function openStream(ctx: Ctx, args: string[], signal: AbortSignal): Readable {
     return out;
   }
   ctx.track(child);
-  const cap = capture(child);
+  const cap = capture(child, false);
   child.stdout?.pipe(out, { end: false });
   const onAbort = () => { terminate(child, ctx.deps.killGraceMs); out.destroy(abortError()); };
   signal.addEventListener("abort", onAbort, { once: true });
