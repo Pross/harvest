@@ -22,7 +22,7 @@
     "@fastify/cookie": "^11.1.2",
     "@fastify/formbody": "^9.0.1",
     "@fastify/static": "^10.1.5",
-    "@fastify/view": "^12.0.0",
+    "@fastify/view": "^12.0.1",
     "better-sqlite3": "^13.0.3",
     "croner": "^10.0.1",
     "cronstrue": "^3.32.0",
