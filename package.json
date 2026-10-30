@@ -24,7 +24,7 @@
     "@fastify/static": "^10.1.7",
     "@fastify/view": "^12.0.1",
     "better-sqlite3": "^13.0.3",
-    "croner": "^10.0.1",
+    "croner": "^11.0.0",
     "cronstrue": "^3.38.0",
     "eta": "^4.6.0",
     "fastify": "^5.12.7",
