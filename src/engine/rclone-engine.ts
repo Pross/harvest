@@ -7,12 +7,16 @@ import { isNotFound, mapRcloneError } from "./rclone-errors.js";
 import { cleanStaleConfigs, createRunner, type Runner, type SpawnFn } from "./rclone-process.js";
 import { buildRemote, type BuildOptions } from "./rclone-remote.js";
 
+const DEFAULT_MAX_LIST_BYTES = 400 * 1024 * 1024;
+
 export type RcloneEngineOptions = {
   rclone: string;
   tmpDir: string;
   connectTimeoutMs: number;
   /** Upper bound for one non-streaming command (list can be slow on big trees). Default 10 minutes. */
   runTimeoutMs?: number;
+  /** Cap on a recursive listing's buffered stdout (V8 cannot hold a string past ~512 MiB). Default 400 MiB. */
+  maxListBytes?: number;
   spawn?: SpawnFn;
   killGraceMs?: number;
   keyScanExec?: Exec;
@@ -71,7 +75,7 @@ function parseLsJson(stdout: string): LsJsonItem[] {
 }
 
 class RcloneSession implements EngineSession {
-  constructor(private readonly runner: Runner, private readonly fs: string, private readonly flags: string[], private readonly timeoutMs: number) {}
+  constructor(private readonly runner: Runner, private readonly fs: string, private readonly flags: string[], private readonly timeoutMs: number, private readonly maxListBytes: number) {}
 
   private target(path: string): string {
     return `${this.fs}${path}`;
@@ -83,7 +87,7 @@ class RcloneSession implements EngineSession {
 
   async list(root: string, opts: { recurse: boolean }): Promise<RemoteEntry[]> {
     const rec = opts.recurse ? ["-R"] : [];
-    const res = await this.runner.runOk(this.cmd("lsjson", ...rec, "--no-mimetype", this.target(root)), { timeoutMs: this.timeoutMs });
+    const res = await this.runner.runOk(this.cmd("lsjson", ...rec, "--no-mimetype", this.target(root)), { timeoutMs: this.timeoutMs, maxOutput: this.maxListBytes });
     return parseLsJson(res.stdout).map(toEntry);
   }
 
@@ -141,7 +145,7 @@ export function createRcloneEngine(opts: RcloneEngineOptions): TransferEngine {
 
   async function openWith(host: HostConfig, buildOpts: BuildOptions): Promise<EngineSession> {
     const remote = await buildRemote(host, deps, buildOpts);
-    return new RcloneSession(createRunner(deps, remote.env), remote.fs, flags, timeoutMs);
+    return new RcloneSession(createRunner(deps, remote.env), remote.fs, flags, timeoutMs, opts.maxListBytes ?? DEFAULT_MAX_LIST_BYTES);
   }
 
   const open = (host: HostConfig): Promise<EngineSession> => openWith(host, {});

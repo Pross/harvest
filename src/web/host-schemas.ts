@@ -57,7 +57,9 @@ const hostSchema = z.object({
   port: ranged(1, 65535, "Port must be between 1 and 65535"),
   username: text.pipe(z.string().trim().min(1, "Username is required").max(255, "Username is too long")),
   auth_kind: z.enum(["password", "key"], { error: "Choose password or key" }).default("password"),
-  password: text, private_key: text, key_passphrase: text,
+  password: text.pipe(z.string().max(1024, "Password is too long (1024 characters max)")),
+  private_key: text.pipe(z.string().max(32_768, "Private key is too long (32 KiB max)")),
+  key_passphrase: text.pipe(z.string().max(1024, "Passphrase is too long (1024 characters max)")),
   tls_accept_self_signed: text,
   max_connections: ranged(1, 32, "Max connections must be between 1 and 32"),
 });

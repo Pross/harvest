@@ -27,6 +27,11 @@ describe("glob validation", () => {
     }
   });
 
+  it("caps star runs across the whole pattern, not only per segment", () => {
+    for (const bad of ["*a*a*a/*a*a*a/x", "*a*a/*a*a/*a*a/*a/x"]) expect(globProblem(bad), bad).toMatch(/in total/);
+    for (const ok of ["*S01*E01*/*Season*/*.mkv", "*a*a*a/*a*a/x", "*a*a/*a*a/*a*a/x", "**/*a*a*a/**/*b*b"]) expect(globProblem(ok), ok).toBeNull();
+  });
+
   it("keeps plain globs", () => {
     for (const ok of ["*", "**", "**/*.mkv", "?x", "[abc]*", "{a,b}*", "**/*.!qB", "*foo*bar*", "**/.incomplete/**"]) {
       expect(globProblem(ok), ok).toBeNull();
@@ -50,6 +55,14 @@ describe("glob validation", () => {
 });
 
 describe("host form and text safety", () => {
+  it("caps the length of password, private key and passphrase", () => {
+    const base = { name: "n", protocol: "sftp", host: "h.example.org", username: "u" };
+    expect(parseHostForm({ ...base, password: "p".repeat(1025) }).ok).toBe(false);
+    expect(parseHostForm({ ...base, auth_kind: "key", private_key: "k".repeat(32_769) }).ok).toBe(false);
+    expect(parseHostForm({ ...base, key_passphrase: "p".repeat(1025) }).ok).toBe(false);
+    expect(parseHostForm({ ...base, password: "p".repeat(1024) }).ok).toBe(true);
+  });
+
   it("rejects a host that starts with a dash", () => {
     const r = parseHostForm({ name: "n", protocol: "sftp", host: "-oProxyCommand=x", username: "u" });
     expect(r.ok).toBe(false);
