@@ -11,7 +11,7 @@ export const DRY_DELETE = "would_delete";
 /** Activity category of the row holding a mirror dry run's true counts and any refusal. */
 export const DRY_MIRROR_CATEGORY = "dry-run-mirror";
 
-export type DryMirrorSummary = { wouldDelete: number; refused: string | null; allowedLarge?: boolean };
+export type DryMirrorSummary = { wouldDelete: number; refused: string | null; allowedLarge?: boolean; pendingConfirm?: number };
 
 /** One-shot permission to delete past the safety limits: valid for a day, then the user has to give it again. */
 export const ALLOW_LARGE_TTL_MS = 24 * 3_600_000;
@@ -29,15 +29,15 @@ export type MirrorCtx = {
   note: (message: string, meta?: unknown) => void;
 };
 
-/** Dry run: record what a real run would delete, then arm the job so a real run is allowed (unless it was edited meanwhile). Nothing is touched on disk. */
+/** Dry run: record what a real run would delete (it marks nothing missing, so a dry run never counts as the first of the two listings), then arm the job so a real run is allowed (unless it was edited meanwhile). Nothing is touched on disk. */
 function dryMirror(ctx: MirrorCtx): void {
   const { stores, job, runId } = ctx;
   const allowed = largeAllowed(job, ctx.now());
-  const plan = planMirrorDeletes(ctx.listing, stores.ledger.active(job.id), allowed);
+  const plan = planMirrorDeletes(ctx.listing, stores.ledger.active(job.id), allowed, runId);
   stores.runs.inTransaction(() => {
     plan.deletes.slice(0, DRY_ROW_CAP).forEach((d) => stores.runs.recordFile({ runId, unitKey: "", remotePath: d.remotePath, size: d.size, state: DRY_DELETE, bytes: 0, attempts: 0 }));
-    const meta: DryMirrorSummary = { wouldDelete: plan.deletes.length, refused: plan.refused, ...(allowed ? { allowedLarge: true } : {}) };
-    stores.activity.record({ category: DRY_MIRROR_CATEGORY, runId, jobId: job.id, summary: plan.refused ?? `Mirror would delete ${plan.deletes.length} local file(s)`, meta });
+    const meta: DryMirrorSummary = { wouldDelete: plan.deletes.length, refused: plan.refused, ...(allowed ? { allowedLarge: true } : {}), ...(plan.newlyMissing.length > 0 ? { pendingConfirm: plan.newlyMissing.length } : {}) };
+    stores.activity.record({ category: DRY_MIRROR_CATEGORY, runId, jobId: job.id, summary: plan.refused ?? `Mirror would delete ${plan.deletes.length} local file(s)${plan.newlyMissing.length > 0 ? `; ${plan.newlyMissing.length} more missing from the remote, deleted only if still missing on a later real run` : ""}`, meta });
   });
   const cur = stores.jobs.get(job.id);
   const unchanged = cur && cur.mode === "mirror" && cur.hostId === job.hostId && cur.remotePath === job.remotePath && cur.localPath === job.localPath;
@@ -48,9 +48,12 @@ function dryMirror(ctx: MirrorCtx): void {
 async function realMirror(ctx: MirrorCtx): Promise<void> {
   const { stores, job } = ctx;
   const allowed = largeAllowed(job, ctx.now());
-  const plan = planMirrorDeletes(ctx.listing, stores.ledger.active(job.id), allowed);
+  const plan = planMirrorDeletes(ctx.listing, stores.ledger.active(job.id), allowed, ctx.runId);
   if (allowed) stores.jobs.update(job.id, { mirrorAllowLargeAt: null }); // consumed by this sweep, whatever it finds
   if (plan.refused) return ctx.warn(`Mirror sweep skipped: ${plan.refused}`);
+  stores.ledger.clearMissing(job.id, plan.reappeared);
+  stores.ledger.setMissing(job.id, plan.newlyMissing, ctx.runId);
+  if (plan.newlyMissing.length > 0) ctx.note(`Mirror: ${plan.newlyMissing.length} file(s) are missing from the remote; they are deleted locally only if still missing on the next real run`, { missing: plan.newlyMissing.slice(0, 200) });
   if (plan.deletes.length === 0) return;
   const out = await sweepLocal(job.localPath, plan.deletes, (p) => stores.ledger.forgetFile(job.id, p), ctx.signal);
   ctx.note(`Mirror removed ${out.deleted.length} local file(s) that left the remote`, { deleted: out.deleted.slice(0, 200), gone: out.gone.length, kept: out.kept.length });

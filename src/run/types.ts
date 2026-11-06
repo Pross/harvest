@@ -33,6 +33,8 @@ export interface LedgerStore {
   completedUnits(jobId: number): Set<string>;
   /** One transaction: upsert ledger rows (clearing forgotten_at), ledger_units, delete the partials rows. */
   commitUnit(jobId: number, unitKey: string, runId: number, files: (PlannedFile & { hash?: string })[], remoteAction: "none" | "pending", remoteActionAt: number | null): void;
+  setMissing(jobId: number, remotePaths: readonly string[], runId: number): void;
+  clearMissing(jobId: number, remotePaths: readonly string[]): void;
   forgetFile(jobId: number, remotePath: string): void;
   forgetUnit(jobId: number, unitKey: string): void;
   forgetAll(jobId: number): void;
