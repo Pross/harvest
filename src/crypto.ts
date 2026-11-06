@@ -19,6 +19,9 @@ const HKDF_SALT = "harvest.app-secret.salt.v1";
 const HKDF_INFO = "harvest.credentials.aes-256-gcm.v1";
 const MIN_SECRET_LEN = 16;
 
+/** True for the sample values shipped in .env.example / docker-compose.example.yml ("change-me-..."), which are public. */
+export const isPlaceholderSecret = (v: string | undefined): boolean => !!v && /^change[-_ ]?me/i.test(v.trim());
+
 function deriveKey(appSecret: string): Buffer {
   if (!appSecret) throw new Error("APP_SECRET is empty");
   return Buffer.from(hkdfSync("sha256", appSecret, HKDF_SALT, HKDF_INFO, 32));

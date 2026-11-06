@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  constantTimeEqual, decryptSecret, encryptSecret, hashPassword, randomToken,
+  constantTimeEqual, decryptSecret, encryptSecret, hashPassword, isPlaceholderSecret, randomToken,
   resolveAppSecret, sha256Hex, verifyPassword,
 } from "../src/crypto.js";
 
@@ -106,5 +106,12 @@ describe("helpers", () => {
     expect(constantTimeEqual("a", "a")).toBe(true);
     expect(constantTimeEqual("a", "ab")).toBe(false);
     expect(constantTimeEqual("", "")).toBe(true);
+  });
+});
+
+describe("isPlaceholderSecret", () => {
+  it("flags the example-file samples and nothing else", () => {
+    for (const v of ["change-me-generate-a-long-random-string", "change-me-at-least-8-chars", "CHANGE_ME", " changeme "]) expect(isPlaceholderSecret(v)).toBe(true);
+    for (const v of [undefined, "", "a3f9c2d41b7e", "my-change-me-later"]) expect(isPlaceholderSecret(v)).toBe(false);
   });
 });

@@ -5,12 +5,16 @@ services:
     ports:
       - "8099:8099"
     environment:
-      # Encrypts stored remote credentials. Keep it stable: changing it makes
-      # saved credentials unreadable. Back it up separately from /config.
-      - APP_SECRET=change-me-generate-a-long-random-string
+      # Encrypts stored remote credentials. Leave unset to auto-generate one in
+      # /config/.app_secret, or set your own (openssl rand -hex 32). Keep it
+      # stable: changing it makes saved credentials unreadable. Back it up
+      # separately from /config.
+      # - APP_SECRET=
       - AUTH_MODE=builtin          # builtin | none (none only behind your own auth)
-      - ADMIN_USER=admin
-      - ADMIN_PASS=change-me-at-least-8-chars
+      # Optional first-run admin (both needed). Without them, open the setup URL
+      # printed in the container log.
+      # - ADMIN_USER=admin
+      # - ADMIN_PASS=
       - TZ=UTC
       - PUID=99
       - PGID=100

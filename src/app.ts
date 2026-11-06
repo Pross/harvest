@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { buildRunPipeline, type RunPipeline } from "./app-run.js";
 import type { Config } from "./config.js";
-import { decryptSecret, encryptSecret, resolveAppSecret } from "./crypto.js";
+import { decryptSecret, encryptSecret, isPlaceholderSecret, resolveAppSecret } from "./crypto.js";
 import { openDb, type DB } from "./db.js";
 import { createRcloneEngine } from "./engine/rclone-engine.js";
 import type { TransferEngine } from "./engine/types.js";
@@ -53,6 +53,7 @@ type Core = {
 
 function buildCore(config: Config, logger: Logger): Core {
   const secret = resolveAppSecret({ env: config.APP_SECRET, configDir: config.CONFIG_DIR });
+  if (isPlaceholderSecret(secret.secret)) logger.error("APP_SECRET is still the sample value from the example file, so anyone can derive the key that encrypts stored credentials. Set a random value (openssl rand -hex 32), or leave it unset to auto-generate one; changing it makes saved credentials unreadable, so re-enter them afterwards");
   if (secret.source === "generated") logger.warn("APP_SECRET was generated and stored in CONFIG_DIR/.app_secret; back it up separately from the database");
   const db = openDb(config.dbPath);
   const stores = createStores(db, {

@@ -17,6 +17,13 @@ describe("ensureAdmin", () => {
     expect(h.logs.join("")).not.toContain("setupUrl");
   });
 
+  it("does not create a user from a sample ADMIN_PASS and falls back to the setup token", async () => {
+    const h = await makeHarness({ user: false, env: { ADMIN_USER: "admin", ADMIN_PASS: "change-me-at-least-8-chars" } });
+    expect(findUser(h.deps.db, "admin")).toBeUndefined();
+    expect(h.logs.join("")).toContain("sample value");
+    expect(tokenFromLogs(h.logs).length).toBeGreaterThan(20);
+  });
+
   it("never overwrites an existing user", async () => {
     const h = await makeHarness({ env: { ADMIN_USER: "root", ADMIN_PASS: "supersecret1" } });
     expect(findUser(h.deps.db, "root")).toBeUndefined();
