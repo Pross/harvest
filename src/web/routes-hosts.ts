@@ -10,7 +10,7 @@ import {
   NEW_HOST_VALUES, PROTOCOL_OPTIONS, bodyStrings, buildSecret, friendlyConnectionError, hostToValues, hostValues,
   parseHostForm, parseId, type FormErrors,
 } from "./host-schemas.js";
-import { UNDECRYPTABLE_MESSAGE, loadHostConfig, secretForUpdate, targetChanged } from "./host-config.js";
+import { TARGET_CHANGED_MESSAGE, UNDECRYPTABLE_MESSAGE, loadHostConfig, secretForUpdate, targetChanged } from "./host-config.js";
 import { redirectTo, render, renderFragment } from "./helpers.js";
 
 const isHtmx = (req: FastifyRequest): boolean => req.headers["hx-request"] === "true";
@@ -53,7 +53,7 @@ export function configFromForm(deps: AppDeps, body: unknown): { cfg: HostConfig 
   const d = parsed.data;
   const stored = loaded && !loaded.undecryptable && !targetChanged(loaded.cfg, d) ? loaded.cfg : null;
   if (pub && !stored && !(d.authKind === "key" ? d.privateKey : d.password)) {
-    return { error: loaded?.undecryptable ? UNDECRYPTABLE_MESSAGE : "Enter the password or key again: the stored one is not sent to a different host, port or username." };
+    return { error: loaded?.undecryptable ? UNDECRYPTABLE_MESSAGE : TARGET_CHANGED_MESSAGE };
   }
   const s = buildSecret(d, stored);
   if ("errors" in s) return { error: Object.values(s.errors)[0] ?? "Check the form" };
