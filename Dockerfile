@@ -2,7 +2,7 @@
 
 # --- Build: compile TypeScript -> dist, then fold in the .sql migrations that
 #     tsc does not copy (db.ts reads them from dist/migrations at runtime). ---
-FROM node:26-bookworm-slim AS build
+FROM node:26-bookworm-slim@sha256:add5c17c14752c54d2f3d519ec46a3815684d41c33f198bcb09fb998f7dcbf68 AS build
 WORKDIR /app
 # better-sqlite3 is a native addon; toolchain is here in case no prebuilt binary
 # matches this Node ABI.
@@ -16,7 +16,7 @@ RUN npm run build && cp -r src/migrations dist/migrations
 
 # --- Production dependencies, compiled against the same base as the runtime so
 #     the better-sqlite3 binary is ABI-compatible. ---
-FROM node:26-bookworm-slim AS deps
+FROM node:26-bookworm-slim@sha256:add5c17c14752c54d2f3d519ec46a3815684d41c33f198bcb09fb998f7dcbf68 AS deps
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
@@ -24,7 +24,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 # --- Runtime ---
-FROM node:26-bookworm-slim AS runtime
+FROM node:26-bookworm-slim@sha256:add5c17c14752c54d2f3d519ec46a3815684d41c33f198bcb09fb998f7dcbf68 AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
     CONFIG_DIR=/config \
@@ -43,10 +43,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         sqlite3 tar tini gosu openssh-client ca-certificates 7zip unar \
     && rm -rf /var/lib/apt/lists/*
 # rclone comes from the official multi-arch image because Debian's apt package is
-# years behind and Harvest relies on current rclone behavior. The tag is pinned;
-# for a fully reproducible build also pin the digest, e.g.
-#   rclone/rclone:1.75.1@sha256:<digest from `docker buildx imagetools inspect rclone/rclone:1.75.1`>
-COPY --from=rclone/rclone:1.75.1 /usr/local/bin/rclone /usr/local/bin/rclone
+# years behind and Harvest relies on current rclone behavior. Tag and digest are both
+# pinned (the digest is the multi-arch index); Dependabot bumps them together, and CI
+# fails if the tag drifts from RCLONE_VERSION in ci.yml.
+COPY --from=rclone/rclone:1.75.1@sha256:45401ad7410db1d67ffdb58e19059ad20b0d8e0285a60e38bbec55cc1019c7a5 /usr/local/bin/rclone /usr/local/bin/rclone
 COPY --from=deps  /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 # views/ and public/ must sit next to dist/ (src/web/server.ts resolves them from the app root).

@@ -50,6 +50,7 @@ jobs:
       - name: Install pinned rclone
         run: |
           set -e
+          grep -q "rclone/rclone:${RCLONE_VERSION#v}@sha256:" Dockerfile || { echo "Dockerfile rclone image does not match RCLONE_VERSION=${RCLONE_VERSION}" >&2; exit 1; }
           base="https://downloads.rclone.org/${RCLONE_VERSION}"
           zip="rclone-${RCLONE_VERSION}-linux-amd64.zip"
           curl -fsSLO "$base/$zip"
