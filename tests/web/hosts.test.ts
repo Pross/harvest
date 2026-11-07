@@ -250,9 +250,23 @@ describe("hosts CRUD", () => {
     const same = await post(c, "/hosts/1", { ...HOST, name: "x", password: "" });
     expect(flashOf(same)).not.toContain("cleared");
     expect(c.h.deps.stores.hosts.getPublic(1)?.hostKeySha256).toBe("SHA256:pinnedfp");
-    const moved = await post(c, "/hosts/1", { ...HOST, host: "other.example.org", password: "" });
+    const moved = await post(c, "/hosts/1", { ...HOST, host: "other.example.org", password: "pw-S3CRET-value" });
     expect(flashOf(moved)).toContain("cleared");
     expect(c.h.deps.stores.hosts.getPublic(1)?.hostKeySha256).toBeNull();
+  });
+
+  it("does not keep the stored password when the target changes without it being entered again", async () => {
+    const c = await setup();
+    await post(c, "/hosts", HOST);
+    for (const change of <Record<string, string>[]>[{ host: "attacker.example" }, { port: "2222" }, { username: "mallory" }, { tls_accept_self_signed: "on" }]) {
+      const res = await post(c, "/hosts/1", { ...HOST, ...change, password: "" });
+      expect(res.statusCode).toBe(400);
+      expect(res.body).toContain("Enter the password or key again");
+      expect(c.h.deps.stores.hosts.getConfig(1)).toMatchObject({ host: "seed.example.org", port: 22, username: "alice", secret: { password: "pw-S3CRET-value" } });
+    }
+    const ok = await post(c, "/hosts/1", { ...HOST, host: "new.example.org", password: "typed-again" });
+    expect(ok.statusCode).toBe(303);
+    expect(c.h.deps.stores.hosts.getConfig(1)).toMatchObject({ host: "new.example.org", secret: { password: "typed-again" } });
   });
 
   it("inherits CSRF and Origin enforcement", async () => {

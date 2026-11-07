@@ -3,6 +3,7 @@ import type { Logger } from "../logger.js";
 import type { Stores } from "../store/index.js";
 import { buildSecret, type FormErrors, type HostFormData, type HostSecret } from "./host-schemas.js";
 
+export const TARGET_CHANGED_MESSAGE = "Enter the password or key again: the stored one is not sent to a different host, port, username or certificate setting.";
 export const UNDECRYPTABLE_MESSAGE = "Stored credentials cannot be decrypted: APP_SECRET changed. Re-enter them.";
 
 /** A stored host config, or the marker for a secret that the current APP_SECRET cannot open (or that is corrupt). */
@@ -28,14 +29,17 @@ export function checkStoredSecrets(deps: { stores: Pick<Stores, "hosts">; logger
 }
 
 /** True when the form changed the connection target, so a stored secret must not be sent to the new address. */
-export function targetChanged(cur: Pick<HostConfig, "protocol" | "host" | "port" | "username">, d: HostFormData): boolean {
-  return cur.protocol !== d.protocol || cur.host !== d.host || cur.port !== d.port || cur.username !== d.username;
+export function targetChanged(cur: Pick<HostConfig, "protocol" | "host" | "port" | "username" | "tlsAcceptSelfSigned">, d: HostFormData): boolean {
+  return cur.protocol !== d.protocol || cur.host !== d.host || cur.port !== d.port || cur.username !== d.username || cur.tlsAcceptSelfSigned !== d.tlsAcceptSelfSigned;
 }
 
-/** Secret to save on update. When the stored one is unreadable a new value must be posted; it then replaces it. */
+/** Secret to save on update. A stored secret is kept only while the connection target is unchanged (otherwise a host edit would send it to a new address); when it is unreadable a new value must be posted. */
 export function secretForUpdate(d: HostFormData, stored: LoadedConfig): { secret: HostSecret | undefined } | { errors: FormErrors } {
-  if (!stored.undecryptable) return buildSecret(d, stored.cfg);
   const posted = d.authKind === "key" ? !!d.privateKey : !!d.password;
+  if (!stored.undecryptable) {
+    if (!posted && targetChanged(stored.cfg, d)) return { errors: { [d.authKind === "key" ? "private_key" : "password"]: TARGET_CHANGED_MESSAGE } };
+    return buildSecret(d, stored.cfg);
+  }
   if (!posted) return { errors: { [d.authKind === "key" ? "private_key" : "password"]: UNDECRYPTABLE_MESSAGE } };
   return buildSecret(d, null);
 }
