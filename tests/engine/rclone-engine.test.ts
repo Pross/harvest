@@ -64,6 +64,15 @@ describe("list", () => {
     await expect((await session()).list("x", { recurse: true })).rejects.toBeInstanceOf(TransientNetwork);
   });
 
+  it("fails with PermanentError instead of buffering a listing past the output cap", async () => {
+    scenario(tmp, "lsjson", { out: json });
+    const s = await engine({ maxListBytes: 50 }).open(host());
+    await expect(s.list("x", { recurse: true })).rejects.toThrow(/exceeded .* MiB/);
+    await expect(s.list("x", { recurse: true })).rejects.toBeInstanceOf(PermanentError);
+    const ok = await engine({ maxListBytes: json.length }).open(host());
+    await expect(ok.list("x", { recurse: true })).resolves.toBeDefined();
+  });
+
   it("throws PermanentError on unparseable output and on missing directory", async () => {
     scenario(tmp, "lsjson", { out: "[{", code: 0 });
     await expect((await session()).list("x", { recurse: true })).rejects.toBeInstanceOf(PermanentError);

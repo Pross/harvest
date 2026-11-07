@@ -94,6 +94,7 @@ export async function buildServer(deps: AppDeps, extraRoutes: RouteRegistrar[] =
     loggerInstance: deps.logger as FastifyBaseLogger,
     logController: new LogController({ disableRequestLogging: true }),
     trustProxy: trustProxyOption(deps.config.TRUST_PROXY),
+    bodyLimit: 1024 * 1024, // forms only; stated explicitly rather than relying on the Fastify default
   });
   app.decorate("cookieSecureFor", (req) => cookieSecure(req, deps));
   registerStreamHub(app);

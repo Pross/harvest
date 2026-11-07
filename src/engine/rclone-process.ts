@@ -14,7 +14,8 @@ export type ProcessDeps = {
   /** Time a child gets to exit after SIGTERM before it is sent SIGKILL. Default 5 s. */
   killGraceMs?: number;
 };
-export type RunOptions = { timeoutMs?: number; signal?: AbortSignal; stdin?: string };
+/** `maxOutput`: bytes of stdout to buffer; past it the child is killed and the call fails (an unbounded recursive listing). */
+export type RunOptions = { timeoutMs?: number; signal?: AbortSignal; stdin?: string; maxOutput?: number };
 export type RunResult = { code: number | null; stdout: string; stderr: string };
 
 const MAX_STDERR = 64 * 1024;
@@ -93,10 +94,17 @@ function launch(deps: ProcessDeps, remoteEnv: Record<string, string>, args: stri
 }
 
 /** `keepStdout: false` for streaming callers: stdout is the payload there and is piped on, never buffered here. */
-function capture(child: ChildProcess, keepStdout = true): { stdout: () => string; stderr: () => string } {
+function capture(child: ChildProcess, keepStdout = true, limit?: { max: number; onExceeded: () => void }): { stdout: () => string; stderr: () => string } {
   const out: Buffer[] = [];
   let err = "";
-  if (keepStdout) child.stdout?.on("data", (c: Buffer) => out.push(c));
+  let bytes = 0;
+  if (keepStdout) {
+    child.stdout?.on("data", (c: Buffer) => {
+      bytes += c.length;
+      if (limit && bytes > limit.max) { out.length = 0; limit.onExceeded(); return; }
+      out.push(c);
+    });
+  }
   child.stderr?.on("data", (c: Buffer) => { if (err.length < MAX_STDERR) err += c.toString("utf8"); });
   return { stdout: () => Buffer.concat(out).toString("utf8"), stderr: () => err };
 }
@@ -118,8 +126,11 @@ function collect(ctx: Ctx, args: string[], opts: RunOptions): Promise<RunResult>
     if (opts.signal?.aborted) return reject(new TransientNetwork("rclone aborted"));
     const { child } = launch(ctx.deps, ctx.remoteEnv, args, opts.stdin !== undefined);
     ctx.track(child);
-    const cap = capture(child);
     let settled = false;
+    const cap = capture(child, true, opts.maxOutput === undefined ? undefined : {
+      max: opts.maxOutput,
+      onExceeded: () => fail(new PermanentError(`rclone output exceeded ${Math.round(opts.maxOutput! / 1048576)} MiB; the remote tree is too large to list in one go`)),
+    });
     const timer = opts.timeoutMs ? setTimeout(() => fail(new TransientNetwork(`rclone timed out after ${opts.timeoutMs} ms`)), opts.timeoutMs) : null;
     const onAbort = () => fail(new TransientNetwork("rclone aborted"));
     const finish = () => { if (timer) clearTimeout(timer); opts.signal?.removeEventListener("abort", onAbort); };

@@ -13,6 +13,7 @@ function capture() {
 const KEYS = [
   "secret", "password", "pass", "passphrase", "privateKey", "keyPassphrase", "secret_enc",
   "APP_SECRET", "ADMIN_PASS", "token", "authorization", "cookie",
+  "apiKey", "botToken", "appToken", "userKey", "bearerToken", "webhookUrl",
 ];
 
 describe("logger redaction", () => {

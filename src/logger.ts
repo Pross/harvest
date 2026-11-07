@@ -12,6 +12,12 @@ const SECRET_KEYS = [
   "APP_SECRET",
   "ADMIN_PASS",
   "token",
+  "apiKey",
+  "botToken",
+  "appToken",
+  "userKey",
+  "bearerToken",
+  "webhookUrl",
   "authorization",
   "cookie",
 ];

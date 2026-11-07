@@ -51,12 +51,17 @@ const whole = (min: number, max: number) =>
   });
 export const MAX_GLOBS = 50;
 export const MAX_GLOB_LENGTH = 200;
+/**
+ * Star runs across all segments. Cost multiplies per segment and is worst for two 3-run segments (13 s on 100-character
+ * repetitive names; 3+2+1 and 2+2+2 stay near a second), so a pattern may hold 6 runs and only one segment with 3.
+ */
+export const MAX_STAR_RUNS = 6;
 
 /**
  * Why a glob is refused, or null. picomatch only compiles at save time and can hang the event loop at match time on
  * regex-like input such as `(a+)+$`, so groups, extglobs and backslashes are rejected outright; plain `*`, `**`, `?`,
  * `[abc]` and `{a,b}` stay. Chained stars are also polynomial (`a*a*a*a*a*b` took 21 s on a 250-character name), so
- * a path segment may hold at most 3 star runs, a pattern at most 2 `**`, and braces may not hold ranges.
+ * a path segment may hold at most 3 star runs, a pattern at most 6 in total (one segment with 3) and 2 `**`, and braces may not hold ranges.
  */
 export function globProblem(line: string): string | null {
   if (line.length > MAX_GLOB_LENGTH) return `Pattern is too long (${MAX_GLOB_LENGTH} characters max)`;
@@ -66,6 +71,8 @@ export function globProblem(line: string): string | null {
   const segments = line.split("/");
   if (segments.filter((x) => x === "**").length > 2) return "Use at most 2 ** in a pattern";
   if (segments.some((x) => x !== "**" && (x.match(/\*+/g) ?? []).length > 3)) return "Use at most 3 * per folder or file name in a pattern";
+  const runs = segments.map((x) => (x === "**" ? 0 : (x.match(/\*+/g) ?? []).length));
+  if (runs.reduce((a, b) => a + b, 0) > MAX_STAR_RUNS || runs.filter((n) => n >= 3).length > 1) return `Use at most ${MAX_STAR_RUNS} * in total in a pattern, and 3 in only one folder or file name`;
   return null;
 }
 
