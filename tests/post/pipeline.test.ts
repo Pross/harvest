@@ -15,7 +15,7 @@ const mk = (cfg: Partial<PostConfig>, over: Partial<Parameters<typeof createPost
   });
   const extract: ExtractStep = { run: vi.fn(async () => ({ warnings: ["w"], added: ["/a"], removed: [] })) };
   const pipe = createPostPipeline({
-    postStore: { get: () => ({ extract: "off", chmodFile: null, chmodDir: null, ...cfg }) }, extract, chmod: step("chmod"), arr: step("arr"), logger, ...over,
+    postStore: { get: () => ({ extract: "off", chmodFile: null, chmodDir: null, titleNfo: false, titleStrip: "", ...cfg }) }, extract, chmod: step("chmod"), arr: step("arr"), logger, ...over,
   });
   return { pipe, calls, extract, step };
 };
@@ -41,7 +41,7 @@ describe("post pipeline", () => {
   it("runs chmod before arr and merges warnings", async () => {
     const t = mk({});
     const calls: string[] = [];
-    const pipe = createPostPipeline({ postStore: { get: () => ({ extract: "off", chmodFile: null, chmodDir: null }) }, extract: t.extract, logger,
+    const pipe = createPostPipeline({ postStore: { get: () => ({ extract: "off", chmodFile: null, chmodDir: null, titleNfo: false, titleStrip: "" }) }, extract: t.extract, logger,
       chmod: { run: async () => { calls.push("chmod"); return { warnings: ["c"] }; } }, arr: { run: async () => { calls.push("arr"); return { warnings: ["a"] }; } } });
     expect(await pipe.afterPromote(promoted())).toEqual({ warnings: ["c", "a"] });
     expect(calls).toEqual(["chmod", "arr"]);
@@ -51,7 +51,7 @@ describe("post pipeline", () => {
     const t = mk({});
     const { step } = t;
     const calls: string[] = [];
-    const pipe = createPostPipeline({ postStore: { get: () => ({ extract: "off", chmodFile: null, chmodDir: null }) }, extract: t.extract, logger,
+    const pipe = createPostPipeline({ postStore: { get: () => ({ extract: "off", chmodFile: null, chmodDir: null, titleNfo: false, titleStrip: "" }) }, extract: t.extract, logger,
       chmod: { run: async () => { calls.push("chmod"); throw new Error("nope"); } }, arr: step("arr") });
     const r = await pipe.afterPromote(promoted());
     expect(r.warnings).toEqual(["chmod failed: nope"]);

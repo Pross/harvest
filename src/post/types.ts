@@ -11,6 +11,12 @@ export interface ExtractStep {
   run(input: ExtractInput): Promise<PostResult & { added: string[]; removed: string[] }>;
 }
 
+/** Runs INSIDE staging after extraction, before promote: writes a title .nfo beside each staged video. `files` are absolute staged video paths. */
+export type TitleInput = PostContext & { files: string[] };
+export interface TitleStep {
+  run(input: TitleInput): Promise<PostResult & { added: string[] }>;
+}
+
 /** Runs after the unit was promoted and the ledger committed. `finalPaths` are absolute local paths. */
 export type AfterPromoteInput = PostContext & { unitKey: string; finalPaths: string[] };
 export interface AfterPromoteStep {
@@ -35,6 +41,8 @@ export interface RunNotifier {
 /** What the executor calls. Order inside a unit: extract (staging) -> promote -> afterPromote [chmod, arr]. Order per run: afterRun. */
 export interface PostPipeline {
   extractInStaging(input: ExtractInput): Promise<PostResult & { added: string[]; removed: string[] }>;
+  /** Optional so pipelines built before the title action keep working. */
+  titleInStaging?(input: TitleInput): Promise<PostResult & { added: string[] }>;
   afterPromote(input: AfterPromoteInput): Promise<PostResult>;
   afterRun(input: Parameters<RunNotifier["run"]>[0]): Promise<PostResult>;
 }

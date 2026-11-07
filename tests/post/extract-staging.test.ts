@@ -19,7 +19,7 @@ function setup(archives: Record<string, FakeArchive>, files: string[], wrap?: (i
   for (const p of paths) writeFileSync(p, "archive-bytes");
   const ctl = new AbortController();
   const inner = fakeRunner(archives).run;
-  const step = createExtractStep({ postStore: { get: () => ({ extract: "keep", chmodFile: null, chmodDir: null }) }, tools: fakeTools, run: wrap ? wrap(inner, ctl) : inner });
+  const step = createExtractStep({ postStore: { get: () => ({ extract: "keep", chmodFile: null, chmodDir: null, titleNfo: false, titleStrip: "" }) }, tools: fakeTools, run: wrap ? wrap(inner, ctl) : inner });
   return { unitDir, ctl, go: () => step.run({ job: { id: 1 } as JobConfig, runId: 1, signal: ctl.signal, unitDir, files: paths }) };
 }
 

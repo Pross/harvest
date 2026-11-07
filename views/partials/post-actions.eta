@@ -20,5 +20,12 @@
   <input type="text" id="chmod_dir" name="chmod_dir" value="<%= it.values.chmod_dir %>" maxlength="4" inputmode="numeric" pattern="(0[0-7]{3}|[0-7]{3})" placeholder="755" autocomplete="off">
   <% if (it.errors.chmod_dir) { %><div class="field-error"><%= it.errors.chmod_dir %></div><% } %>
   <div class="hint">Leave empty to keep the default (UMASK). Files need at least owner read and write (600), directories at least 700; setuid, setgid and sticky bits are not allowed. Applied after the files are in place, to the new files and the folders above them inside the local path. Symbolic links are skipped.</div>
+
+  <label class="check"><input type="checkbox" id="title_nfo" name="title_nfo" value="on"<% if (it.values.title_nfo === "on") { %> checked<% } %>> Write a title .nfo next to each video</label>
+  <div class="hint">For Jellyfin, Emby and Kodi (Plex ignores .nfo files). Creates <code>&lt;video name&gt;.nfo</code> holding an episode title made from the filename (dots become spaces), so the media server shows a readable title instead of guessing from the filename. The video itself is never modified, so its size, checksum and the ledger are unaffected. An .nfo that already exists (for example one the remote shipped) is left alone. In mirror mode the .nfo is deleted together with its video, but only if Harvest wrote it.</div>
+  <label for="title_strip">Remove these words from the title</label>
+  <input type="text" id="title_strip" name="title_strip" value="<%= it.values.title_strip %>" maxlength="200" placeholder="SkyF1HD, 1080P" autocomplete="off">
+  <% if (it.errors.title_strip) { %><div class="field-error"><%= it.errors.title_strip %></div><% } %>
+  <div class="hint">Comma-separated release tags, matched against whole dot-separated words and ignoring case. Example: <code>05.F1.2026.R20.SkyF1HD.1080P.mkv</code> with <code>SkyF1HD, 1080P</code> becomes the title "05 F1 2026 R20".</div>
   <p class="actions"><button type="submit" class="primary">Save post-actions</button></p>
 </form>

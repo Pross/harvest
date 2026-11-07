@@ -3,12 +3,14 @@ import { createChmodStep } from "./chmod.js";
 import type { PostStore } from "./deps.js";
 import { createExtractStep } from "./extract.js";
 import { findTools } from "./extract-tools.js";
-import type { AfterPromoteInput, AfterPromoteStep, ExtractInput, ExtractStep, PostPipeline, PostResult, RunNotifier } from "./types.js";
+import { createTitleStep } from "./title-nfo.js";
+import type { AfterPromoteInput, AfterPromoteStep, ExtractInput, ExtractStep, PostPipeline, PostResult, RunNotifier, TitleInput, TitleStep } from "./types.js";
 
 export type PostPipelineDeps = {
   postStore: PostStore;
   extract: ExtractStep;
   chmod: AfterPromoteStep;
+  title?: TitleStep;
   arr?: AfterPromoteStep;
   notifier?: RunNotifier;
   logger: Logger;
@@ -34,6 +36,11 @@ export function createPostPipeline(deps: PostPipelineDeps): PostPipeline {
       if (deps.postStore.get(input.job.id).extract === "off") return Promise.resolve({ warnings: [], ...empty });
       return guard(logger, "extraction", empty, () => deps.extract.run(input));
     },
+    titleInStaging(input: TitleInput) {
+      const { title } = deps;
+      if (!title || !deps.postStore.get(input.job.id).titleNfo) return Promise.resolve({ warnings: [], added: [] });
+      return guard(logger, "title nfo", { added: [] as string[] }, () => title.run(input));
+    },
     async afterPromote(input: AfterPromoteInput) {
       const warnings: string[] = [];
       const steps: [string, AfterPromoteStep | undefined][] = [["chmod", deps.chmod], ["*arr notification", deps.arr]];
@@ -54,5 +61,5 @@ export function createDefaultPostPipeline(i: { postStore: PostStore; logger: Log
   const tools = findTools();
   i.logger.info({ sevenZip: tools.sevenZip?.bin ?? null, rar: tools.rar?.name ?? null }, "archive extractors available");
   const base = { postStore: i.postStore, logger: i.logger };
-  return createPostPipeline({ ...base, extract: createExtractStep({ postStore: i.postStore, tools }), chmod: createChmodStep(base), ...(i.arr ? { arr: i.arr } : {}), ...(i.notifier ? { notifier: i.notifier } : {}) });
+  return createPostPipeline({ ...base, extract: createExtractStep({ postStore: i.postStore, tools }), chmod: createChmodStep(base), title: createTitleStep({ postStore: i.postStore }), ...(i.arr ? { arr: i.arr } : {}), ...(i.notifier ? { notifier: i.notifier } : {}) });
 }

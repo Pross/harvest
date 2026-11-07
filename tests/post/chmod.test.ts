@@ -13,7 +13,7 @@ const mode = (p: string): string => (statSync(p).mode & 0o7777).toString(8);
 function setup(cfg: Partial<PostConfig>) {
   const root = realpathSync(mkdtempSync(path.join(tmpdir(), "chmod-")));
   dirs.push(root);
-  const step = createChmodStep({ postStore: { get: () => ({ extract: "off", chmodFile: null, chmodDir: null, ...cfg }) } });
+  const step = createChmodStep({ postStore: { get: () => ({ extract: "off", chmodFile: null, chmodDir: null, titleNfo: false, titleStrip: "", ...cfg }) } });
   const run = (finalPaths: string[]) => step.run({ job: { id: 1, localPath: root } as JobConfig, runId: 1, signal: new AbortController().signal, unitKey: "u", finalPaths });
   return { root, run };
 }

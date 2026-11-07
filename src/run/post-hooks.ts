@@ -22,6 +22,10 @@ async function guarded<T>(ctx: RunCtx, what: string, fn: () => Promise<T>): Prom
   }
 }
 
+/** Videos to title: staged files that will be promoted, plus extracted ones. */
+const titleTargets = (staged: StagedFile[], dropped: string[], added: string[]): string[] =>
+  [...staged.filter((s) => !s.promoted && !dropped.includes(s.staging)).map((s) => s.staging), ...added];
+
 /**
  * Runs the extract step after every file of the unit is verified and before promote. Returned paths are checked here:
  * added files must sit inside the job's staging root, removed ones must be staged files of this unit.
@@ -38,6 +42,11 @@ export async function extractUnit(ctx: RunCtx, unit: PlannedUnit, staged: Staged
   const added = res.added.filter((p) => isInside(root, p) && path.resolve(p) !== path.resolve(root));
   const dropped = res.removed.filter((p) => files.includes(p));
   if (added.length > 0) ctx.note("extract", "info", `Extracted ${added.length} file(s) in ${unit.key}`, { unit: unit.key, dropped: dropped.length });
+  const titled = await guarded(ctx, "title nfo", async () => post.titleInStaging?.({ job: ctx.job, runId: ctx.runId, signal: ctx.signal, files: titleTargets(staged, dropped, added) }));
+  titled?.warnings.forEach((w) => ctx.postWarn(w));
+  const nfos = (titled?.added ?? []).filter((p) => isInside(root, p) && path.resolve(p) !== path.resolve(root));
+  if (nfos.length > 0) ctx.note("title", "info", `Wrote ${nfos.length} title .nfo file(s) in ${unit.key}`, { unit: unit.key });
+  added.push(...nfos);
   const holdRemote = res.warnings.length > 0 ? "extraction reported a warning (the archives are still on the remote)" : undefined;
   return holdRemote === undefined ? { added, dropped } : { added, dropped, holdRemote };
 }
