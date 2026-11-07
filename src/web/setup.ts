@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { constantTimeEqual, hashPassword, randomToken } from "../crypto.js";
+import { constantTimeEqual, hashPassword, isPlaceholderSecret, randomToken } from "../crypto.js";
 import type { AppDeps } from "./deps.js";
 import { redirectTo, render } from "./helpers.js";
 import { countUsers, createFirstUser } from "./sessions.js";
@@ -16,7 +16,9 @@ export type SetupState = { token: string | null };
 export async function ensureAdmin(deps: AppDeps): Promise<SetupState> {
   const { config, logger, db } = deps;
   if (config.AUTH_MODE !== "builtin" || countUsers(db) > 0) return { token: null };
-  if (config.ADMIN_USER && config.ADMIN_PASS) {
+  if (config.ADMIN_USER && isPlaceholderSecret(config.ADMIN_PASS)) {
+    logger.error("ADMIN_PASS is still the sample value from the example file, so no admin user was created from it. Use the setup URL below, or set a real ADMIN_PASS");
+  } else if (config.ADMIN_USER && config.ADMIN_PASS) {
     createFirstUser(db, config.ADMIN_USER, await hashPassword(config.ADMIN_PASS));
     logger.info({ username: config.ADMIN_USER }, "Created the admin user from ADMIN_USER/ADMIN_PASS");
     return { token: null };

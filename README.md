@@ -94,7 +94,7 @@ Copy and edit `docker-compose.example.yml`:
 
 ```bash
 cp docker-compose.example.yml docker-compose.yml
-# Edit: set APP_SECRET, ADMIN_USER, ADMIN_PASS, and volume mounts
+# Edit: volume mounts, and optionally APP_SECRET, ADMIN_USER, ADMIN_PASS (the example ships no placeholder values; a "change-me" value is logged as an error and an ADMIN_PASS like that is not used)
 docker-compose up -d
 ```
 
