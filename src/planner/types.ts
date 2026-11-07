@@ -2,7 +2,11 @@ import type { JobConfig } from "../domain.js";
 import type { RemoteEntry } from "../engine/types.js";
 
 /** Active (not forgotten) ledger row, as the planner sees it. */
-export type LedgerEntry = { remotePath: string; size: number; mtimeMs: number | null; syncedAt: number };
+export type LedgerEntry = {
+  remotePath: string; size: number; mtimeMs: number | null; syncedAt: number;
+  /** Mirror mode: the run that first saw this file missing from the remote; null/absent while it is listed. */
+  missingRunId?: number | null;
+};
 
 /** Settle-check state persisted per remote file (table remote_observations). */
 export type Observation = {

@@ -40,6 +40,7 @@ describe("mirror: dry run", () => {
   it("records what would be deleted, touches nothing and arms the job", async () => {
     const h = await synced(["a.bin", "b.bin", "c.bin"]);
     h.session.files.delete(remote("b.bin"));
+    await h.exec(); // a real run saw it missing first
     h.stores.jobs.update(h.jobId, { mirrorArmedAt: null });
     const r = await h.exec({ dryRun: true });
     expect(r.state).toBe("succeeded");
@@ -49,6 +50,30 @@ describe("mirror: dry run", () => {
     expect(existsSync(at(h, "b.bin"))).toBe(true);
     expect(h.stores.ledger.active(h.jobId).has("b.bin")).toBe(true);
     expect(h.jobRow().mirrorArmedAt).toBe(h.clock.t);
+  });
+
+  it("a dry run on a first sighting marks nothing, so a real run right after still deletes nothing", async () => {
+    const h = await synced(["a.bin", "b.bin", "c.bin"]);
+    h.session.files.delete(remote("b.bin"));
+    const r = await h.exec({ dryRun: true });
+    const meta = h.stores.activity.list({ runId: r.runId, category: DRY_MIRROR_CATEGORY, limit: 1 })[0]!.meta as DryMirrorSummary;
+    expect(meta).toEqual({ wouldDelete: 0, refused: null, pendingConfirm: 1 });
+    await h.exec();
+    expect(existsSync(at(h, "b.bin"))).toBe(true);
+    await h.exec();
+    expect(existsSync(at(h, "b.bin"))).toBe(false);
+  });
+
+  it("a file that comes back before the second listing is never deleted", async () => {
+    const h = await synced(["a.bin", "b.bin", "c.bin"]);
+    const data = h.session.files.get(remote("b.bin"))!;
+    h.session.files.delete(remote("b.bin"));
+    await h.exec();
+    h.session.files.set(remote("b.bin"), data);
+    await h.exec();
+    h.session.files.delete(remote("b.bin"));
+    await h.exec(); // marked again from scratch
+    expect(existsSync(at(h, "b.bin"))).toBe(true);
   });
 
   it("does not arm a job that was edited while the dry run was in flight", async () => {
@@ -78,6 +103,8 @@ describe("mirror: real runs", () => {
   it("deletes local files that left the remote, prunes empty folders and forgets the ledger row", async () => {
     const h = await synced(["Show/e1.mkv", "Show/e2.mkv", "Other/x.bin"]);
     h.session.files.delete(remote("Other/x.bin"));
+    await h.exec(); // first sighting: only marked
+    expect(existsSync(at(h, "Other/x.bin"))).toBe(true);
     const r = await h.exec();
     expect(r.state).toBe("succeeded");
     expect(existsSync(at(h, "Other/x.bin"))).toBe(false);
@@ -95,6 +122,7 @@ describe("mirror: real runs", () => {
     writeFileSync(at(h, "my-folder/note.txt"), "keep");
     h.session.files.delete(remote("a.bin"));
     await h.exec();
+    await h.exec();
     expect(existsSync(at(h, "a.bin"))).toBe(false);
     expect(readFileSync(at(h, "mine.txt"), "utf8")).toBe("hand added");
     expect(readFileSync(at(h, "my-folder/note.txt"), "utf8")).toBe("keep");
@@ -104,6 +132,7 @@ describe("mirror: real runs", () => {
     const h = await synced(["a.bin", "b.bin"]);
     writeFileSync(at(h, "a.bin"), "edited by hand");
     h.session.files.delete(remote("a.bin"));
+    await h.exec();
     const r = await h.exec();
     expect(r.state).toBe("partial");
     expect(readFileSync(at(h, "a.bin"), "utf8")).toBe("edited by hand");
@@ -116,6 +145,7 @@ describe("mirror: real runs", () => {
     const target = at(h, "b.bin");
     await import("node:fs").then((fs) => { fs.rmSync(at(h, "a.bin")); symlinkSync(target, at(h, "a.bin")); });
     h.session.files.delete(remote("a.bin"));
+    await h.exec();
     const r = await h.exec();
     expect(r.state).toBe("partial");
     expect(existsSync(target)).toBe(true);

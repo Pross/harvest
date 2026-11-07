@@ -12,6 +12,18 @@ describe("ledger store", () => {
     expect(stores.ledger.listActive(jobId, { limit: 10, offset: 0 }).rows[0]?.hash).toBe("abc");
   });
 
+  it("setMissing keeps the first sighting, clearMissing and a re-download reset it", () => {
+    const { stores, jobId } = setup();
+    stores.ledger.commitUnit(jobId, "U", 1, [file("U/a"), file("U/b")], "none", null);
+    stores.ledger.setMissing(jobId, ["U/a", "U/b"], 7);
+    stores.ledger.setMissing(jobId, ["U/a"], 9);
+    expect(stores.ledger.active(jobId).get("U/a")?.missingRunId).toBe(7);
+    stores.ledger.clearMissing(jobId, ["U/a"]);
+    expect(stores.ledger.active(jobId).get("U/a")?.missingRunId).toBeNull();
+    stores.ledger.commitUnit(jobId, "U", 2, [file("U/b")], "none", null);
+    expect(stores.ledger.active(jobId).get("U/b")?.missingRunId).toBeNull();
+  });
+
   it("commitUnit is atomic: a mid-transaction failure persists nothing", () => {
     const { db, stores, jobId } = setup();
     stores.partials.create({ jobId, remotePath: "U/a", remoteSize: 1, remoteMtimeMs: null, stagingPath: "/s" }, []);

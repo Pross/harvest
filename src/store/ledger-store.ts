@@ -11,6 +11,7 @@ export type DueAction = { jobId: number; remotePath: string; remoteRaw: string |
 type LedgerSql = {
   remote_path: string; size: number; mtime: number | null; hash: string | null; synced_at: number;
   run_id: number | null; remote_action: RemoteAction; remote_action_at: number | null; remote_raw: string | null;
+  missing_run_id: number | null;
 };
 
 function toRow(r: LedgerSql): LedgerRow {
@@ -26,7 +27,7 @@ export class SqliteLedgerStore implements LedgerStore {
   active(jobId: number): Map<string, LedgerEntry> {
     const rows = this.db.prepare("SELECT * FROM ledger WHERE job_id = ? AND forgotten_at IS NULL").all(jobId) as LedgerSql[];
     const out = new Map<string, LedgerEntry>();
-    for (const r of rows) out.set(r.remote_path, { remotePath: r.remote_path, size: r.size, mtimeMs: r.mtime, syncedAt: r.synced_at });
+    for (const r of rows) out.set(r.remote_path, { remotePath: r.remote_path, size: r.size, mtimeMs: r.mtime, syncedAt: r.synced_at, missingRunId: r.missing_run_id });
     return out;
   }
 
@@ -54,7 +55,7 @@ export class SqliteLedgerStore implements LedgerStore {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
        ON CONFLICT (job_id, remote_path) DO UPDATE SET size = excluded.size, mtime = excluded.mtime, hash = excluded.hash,
          synced_at = excluded.synced_at, run_id = excluded.run_id, remote_action = excluded.remote_action,
-         remote_action_at = excluded.remote_action_at, remote_raw = excluded.remote_raw, forgotten_at = NULL`,
+         remote_action_at = excluded.remote_action_at, remote_raw = excluded.remote_raw, forgotten_at = NULL, missing_run_id = NULL`,
     );
     const delPartial = this.db.prepare("DELETE FROM partials WHERE job_id = ? AND remote_path = ?");
     this.db.transaction(() => {
@@ -67,6 +68,18 @@ export class SqliteLedgerStore implements LedgerStore {
          ON CONFLICT (job_id, unit_key) DO UPDATE SET completed_at = excluded.completed_at`,
       ).run(jobId, unitKey, now);
     })();
+  }
+
+  /** Marks files the remote listing no longer holds; keeps an earlier mark so the first sighting counts. */
+  setMissing(jobId: number, remotePaths: readonly string[], runId: number): void {
+    const stmt = this.db.prepare("UPDATE ledger SET missing_run_id = ? WHERE job_id = ? AND remote_path = ? AND forgotten_at IS NULL AND missing_run_id IS NULL");
+    this.db.transaction(() => { for (const p of remotePaths) stmt.run(runId, jobId, p); })();
+  }
+
+  /** Files that are listed again lose their missing mark. */
+  clearMissing(jobId: number, remotePaths: readonly string[]): void {
+    const stmt = this.db.prepare("UPDATE ledger SET missing_run_id = NULL WHERE job_id = ? AND remote_path = ?");
+    this.db.transaction(() => { for (const p of remotePaths) stmt.run(jobId, p); })();
   }
 
   forgetFile(jobId: number, remotePath: string): void {
