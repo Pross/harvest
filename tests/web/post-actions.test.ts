@@ -31,15 +31,15 @@ describe("post-actions page", () => {
     const job = seedJob(h);
     const res = await post(h, `/jobs/${job}/post-actions`, { extract: "delete", chmod_file: "644", chmod_dir: "0755" });
     expect(res.statusCode).toBe(303);
-    expect(h.deps.stores.post.get(job)).toEqual({ extract: "delete", chmodFile: "644", chmodDir: "0755" });
+    expect(h.deps.stores.post.get(job)).toEqual({ extract: "delete", chmodFile: "644", chmodDir: "0755", titleNfo: false, titleStrip: "" });
   });
 
   it("clears the modes when the fields are empty", async () => {
     const h = await boot();
     const job = seedJob(h);
-    h.deps.stores.post.set(job, { extract: "keep", chmodFile: "644", chmodDir: "755" });
+    h.deps.stores.post.set(job, { extract: "keep", chmodFile: "644", chmodDir: "755", titleNfo: false, titleStrip: "" });
     await post(h, `/jobs/${job}/post-actions`, { extract: "keep", chmod_file: "", chmod_dir: "" });
-    expect(h.deps.stores.post.get(job)).toEqual({ extract: "keep", chmodFile: null, chmodDir: null });
+    expect(h.deps.stores.post.get(job)).toEqual({ extract: "keep", chmodFile: null, chmodDir: null, titleNfo: false, titleStrip: "" });
   });
 
   it("shows inline errors and saves nothing for invalid input", async () => {
@@ -71,5 +71,35 @@ describe("post-actions page", () => {
     const { sid } = await session(h);
     expect((await req(h, { method: "GET", url: "/jobs/999/post-actions", sid })).statusCode).toBe(404);
     expect((await req(h, { method: "POST", url: `/jobs/${job}/post-actions`, sid, payload: { extract: "keep" } })).statusCode).toBe(403);
+  });
+});
+
+describe("post-actions page: title nfo", () => {
+  it("saves the switch and the strip list, and shows them again", async () => {
+    const h = await boot();
+    const job = seedJob(h);
+    const res = await post(h, `/jobs/${job}/post-actions`, { extract: "off", title_nfo: "on", title_strip: " SkyF1HD, 1080P " });
+    expect(res.statusCode).toBe(303);
+    expect(h.deps.stores.post.get(job)).toMatchObject({ titleNfo: true, titleStrip: "SkyF1HD, 1080P" });
+    const { sid } = await session(h);
+    const page = await req(h, { method: "GET", url: `/jobs/${job}/post-actions`, sid });
+    expect(page.body).toContain('name="title_nfo" value="on" checked');
+    expect(page.body).toContain('value="SkyF1HD, 1080P"');
+  });
+
+  it("is off by default and turns off when the box is cleared", async () => {
+    const h = await boot();
+    const job = seedJob(h);
+    await post(h, `/jobs/${job}/post-actions`, { extract: "off", title_nfo: "on" });
+    await post(h, `/jobs/${job}/post-actions`, { extract: "off" });
+    expect(h.deps.stores.post.get(job).titleNfo).toBe(false);
+  });
+
+  it("rejects an over-long strip list and saves nothing", async () => {
+    const h = await boot();
+    const job = seedJob(h);
+    const res = await post(h, `/jobs/${job}/post-actions`, { extract: "off", title_nfo: "on", title_strip: "x".repeat(250) }, true);
+    expect(res.body).toContain("at most 200");
+    expect(h.deps.stores.post.get(job).titleNfo).toBe(false);
   });
 });

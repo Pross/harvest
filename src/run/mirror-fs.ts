@@ -2,6 +2,7 @@ import { promises as fsp } from "node:fs";
 import path from "node:path";
 import type { RemoteEntry } from "../engine/types.js";
 import type { LedgerEntry } from "../planner/types.js";
+import { removeTitleNfo } from "../post/title-nfo.js";
 import { assertContained, assertRealContained, finalPathFor } from "./paths.js";
 
 const STAT_BATCH = 32;
@@ -68,10 +69,14 @@ async function sweepOne(localPath: string, entry: LedgerEntry): Promise<Verdict>
   assertContained(localPath, final);
   await assertRealContained(localPath, final);
   const st = await fsp.lstat(final).catch((err: unknown) => (code(err) === "ENOENT" ? null : Promise.reject(err)));
-  if (st === null) return { kind: "gone" };
+  if (st === null) {
+    await removeTitleNfo(final); // the video is already gone locally: tidy the orphaned Harvest .nfo
+    return { kind: "gone" };
+  }
   if (!st.isFile()) return { kind: "kept", reason: "not a regular file" };
   if (st.size !== entry.size) return { kind: "kept", reason: `size ${st.size} differs from the ${entry.size} bytes Harvest placed, so it was changed locally` };
   await fsp.unlink(final);
+  await removeTitleNfo(final); // only a Harvest-generated .nfo (marker comment) is ever removed
   await pruneEmptyParents(path.resolve(localPath), path.dirname(final));
   return { kind: "deleted" };
 }

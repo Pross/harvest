@@ -16,7 +16,7 @@ function setup(mode: PostConfig["extract"], archives: Record<string, FakeArchive
   const paths = files.map((f) => path.join(unitDir, f));
   for (const p of paths) { mkdirSync(path.dirname(p), { recursive: true }); writeFileSync(p, "archive-bytes"); }
   const { run, calls } = fakeRunner(archives);
-  const step = createExtractStep({ postStore: { get: () => ({ extract: mode, chmodFile: null, chmodDir: null }) }, tools: fakeTools, run, ...extra });
+  const step = createExtractStep({ postStore: { get: () => ({ extract: mode, chmodFile: null, chmodDir: null, titleNfo: false, titleStrip: "" }) }, tools: fakeTools, run, ...extra });
   const go = (signal = new AbortController().signal) => step.run({ job: { id: 1 } as JobConfig, runId: 1, signal, unitDir, files: paths });
   return { unitDir, paths, calls, go };
 }

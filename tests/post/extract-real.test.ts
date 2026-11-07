@@ -16,7 +16,7 @@ const dirs: string[] = [];
 afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
 
 const unitDir = (): string => { const d = mkdtempSync(path.join(tmpdir(), "real-")); dirs.push(d); return d; };
-const step = (mode: "keep" | "delete") => createExtractStep({ postStore: { get: () => ({ extract: mode, chmodFile: null, chmodDir: null }) }, tools });
+const step = (mode: "keep" | "delete") => createExtractStep({ postStore: { get: () => ({ extract: mode, chmodFile: null, chmodDir: null, titleNfo: false, titleStrip: "" }) }, tools });
 const run = (mode: "keep" | "delete", dir: string, files: string[]) =>
   step(mode).run({ job: { id: 1 } as JobConfig, runId: 1, signal: new AbortController().signal, unitDir: dir, files: files.map((f) => path.join(dir, f)) });
 
