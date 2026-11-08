@@ -43,7 +43,7 @@ export function createPostPipeline(deps: PostPipelineDeps): PostPipeline {
     },
     async afterPromote(input: AfterPromoteInput) {
       const warnings: string[] = [];
-      const steps: [string, AfterPromoteStep | undefined][] = [["chmod", deps.chmod], ["*arr notification", deps.arr]];
+      const steps: [string, AfterPromoteStep | undefined][] = [["chmod", deps.chmod], ["library scan", deps.arr]];
       for (const [name, step] of steps) {
         if (step) warnings.push(...(await guard(logger, name, {}, () => step.run(input))).warnings);
       }

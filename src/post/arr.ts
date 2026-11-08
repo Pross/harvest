@@ -6,7 +6,7 @@ import { explainError } from "./explain.js";
 import { IntegrationHttpError, httpRequest, joinUrl } from "./http.js";
 import type { AfterPromoteInput, AfterPromoteStep, PostResult } from "./types.js";
 
-const COMMAND: Record<ArrConfig["kind"], string> = { sonarr: "DownloadedEpisodesScan", radarr: "DownloadedMoviesScan" };
+const COMMAND = { sonarr: "DownloadedEpisodesScan", radarr: "DownloadedMoviesScan" } as const;
 
 type ArrStores = Pick<Stores, "arrTargets" | "integrations">;
 
@@ -36,24 +36,37 @@ export type ArrTestResult = { ok: boolean; message: string };
 
 const MAX_STATUS_BYTES = 64 * 1024;
 
-/** Parses the system/status body: JSON with a string `appName` (Sonarr, Radarr, ...) or null. */
-function parseStatus(text: string): { appName: string; version: string | null } | null {
+/** Parses the status body: JSON with a string `appName` (*arr) or `ProductName` (Jellyfin), or null. */
+function parseStatus(text: string, jellyfin: boolean): { appName: string; version: string | null } | null {
   try {
     const body: unknown = JSON.parse(text);
     if (body === null || typeof body !== "object") return null;
-    const { appName, version } = body as { appName?: unknown; version?: unknown };
+    const b = body as Record<string, unknown>;
+    const appName = b[jellyfin ? "ProductName" : "appName"];
+    const version = b[jellyfin ? "Version" : "version"];
     return typeof appName === "string" && appName !== "" ? { appName, version: typeof version === "string" ? version : null } : null;
   } catch {
     return null;
   }
 }
 
-/** GET /api/v3/system/status (first 64 KB). Only a JSON answer with an `appName` counts as an *arr. Never returns or logs the key. */
+/** Jellyfin accepts the API key as a MediaBrowser token. */
+const jellyfinHeaders = (apiKey: string): Record<string, string> => ({ authorization: `MediaBrowser Token="${apiKey}"` });
+
+/**
+ * *arr: GET /api/v3/system/status; Jellyfin: GET /System/Info (needs a valid key, unlike /System/Info/Public). First 64 KB only.
+ * Only a JSON answer with an application name counts. Never returns or logs the key.
+ */
 export async function testArr(cfg: ArrConfig, signal?: AbortSignal): Promise<ArrTestResult> {
+  const jellyfin = cfg.kind === "jellyfin";
   try {
-    const res = await httpRequest({ url: joinUrl(cfg.url, "/api/v3/system/status"), headers: { "x-api-key": cfg.apiKey }, maxBytes: MAX_STATUS_BYTES, ...(signal ? { signal } : {}) });
-    const status = parseStatus(res.text);
-    if (!status) return { ok: false, message: "The server answered, but not like Sonarr or Radarr (no application name in the response). Check the URL." };
+    const res = await httpRequest({
+      url: joinUrl(cfg.url, jellyfin ? "/System/Info" : "/api/v3/system/status"),
+      headers: jellyfin ? jellyfinHeaders(cfg.apiKey) : { "x-api-key": cfg.apiKey },
+      maxBytes: MAX_STATUS_BYTES, ...(signal ? { signal } : {}),
+    });
+    const status = parseStatus(res.text, jellyfin);
+    if (!status) return { ok: false, message: `The server answered, but not like ${jellyfin ? "Jellyfin" : "Sonarr or Radarr"} (no application name in the response). Check the URL.` };
     return { ok: true, message: `Connected to ${status.appName}${status.version ? ` ${status.version}` : ""}.` };
   } catch (err) {
     if (err instanceof IntegrationHttpError) return { ok: false, message: err.message === "HTTP 401" ? "HTTP 401: the API key was rejected." : err.message };
@@ -62,13 +75,21 @@ export async function testArr(cfg: ArrConfig, signal?: AbortSignal): Promise<Arr
 }
 
 async function scan(cfg: ArrConfig, dir: string, signal: AbortSignal): Promise<void> {
+  if (cfg.kind === "jellyfin") {
+    // Targeted library scan: Jellyfin refreshes the library that contains this folder (204 No Content).
+    await httpRequest({
+      url: joinUrl(cfg.url, "/Library/Media/Updated"), method: "POST", headers: jellyfinHeaders(cfg.apiKey),
+      json: { Updates: [{ Path: dir, UpdateType: "Created" }] }, signal,
+    });
+    return;
+  }
   await httpRequest({
     url: joinUrl(cfg.url, "/api/v3/command"), method: "POST", headers: { "x-api-key": cfg.apiKey },
     json: { name: COMMAND[cfg.kind], path: dir }, signal,
   });
 }
 
-const UNREADABLE = "the *arr API key cannot be decrypted (APP_SECRET changed?): save the target again";
+const UNREADABLE = "the API key cannot be decrypted (APP_SECRET changed?): save the target again";
 
 function loadTarget(deps: { stores: ArrStores; logger: Logger }, id: number): ArrConfig | string {
   try {
@@ -85,15 +106,15 @@ export function createArrStep(deps: { stores: ArrStores; logger: Logger }): Afte
       if (link.arrTargetId === null || !link.arrPath) return { warnings: [] };
       const dir = commonDir(input.finalPaths);
       const mapped = dir === null ? null : mapToArrPath(input.job.localPath, link.arrPath, dir);
-      if (mapped === null) return { warnings: [`*arr: skipped ${input.unitKey}: its files are not inside the job's local path`] };
+      if (mapped === null) return { warnings: [`library scan: skipped ${input.unitKey}: its files are not inside the job's local path`] };
       const cfg = loadTarget(deps, link.arrTargetId);
-      if (typeof cfg === "string") return { warnings: [`*arr: ${cfg}`] };
+      if (typeof cfg === "string") return { warnings: [`library scan: ${cfg}`] };
       try {
         await scan(cfg, mapped, input.signal);
         return { warnings: [] };
       } catch (err) {
         const why = explainError(err, deps.logger, { target: cfg.name }, UNREADABLE);
-        return { warnings: [`*arr ${cfg.name}: scan of ${input.unitKey} failed: ${why}`] };
+        return { warnings: [`library scan ${cfg.name}: scan of ${input.unitKey} failed: ${why}`] };
       }
     },
   };

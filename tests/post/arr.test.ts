@@ -10,7 +10,7 @@ afterEach(async () => { await stub?.close(); stub = undefined; });
 const logger = buildLogger("silent", false);
 const KEY = "super-secret-key-123";
 
-async function fixture(reply?: Parameters<typeof startStub>[0], kind: "sonarr" | "radarr" = "sonarr") {
+async function fixture(reply?: Parameters<typeof startStub>[0], kind: "sonarr" | "radarr" | "jellyfin" = "sonarr") {
   stub = await startStub(reply);
   const s = setup();
   const target = s.stores.arrTargets.create({ name: "tv", kind, url: stub.url, apiKey: KEY });
@@ -48,6 +48,16 @@ describe("arr step", () => {
     const { step, input } = await fixture(undefined, "radarr");
     await step.run(input);
     expect(JSON.parse(stub!.seen[0]!.body).name).toBe("DownloadedMoviesScan");
+  });
+
+  it("posts a targeted Media/Updated scan to jellyfin with the token header", async () => {
+    const { step, input } = await fixture(() => ({ status: 204, body: "" }), "jellyfin");
+    expect(await step.run(input)).toEqual({ warnings: [] });
+    const r = stub!.seen[0]!;
+    expect(r.method).toBe("POST");
+    expect(r.url).toBe("/Library/Media/Updated");
+    expect(r.headers["authorization"]).toBe(`MediaBrowser Token="${KEY}"`);
+    expect(JSON.parse(r.body)).toEqual({ Updates: [{ Path: "/data/tv/Show/S01", UpdateType: "Created" }] });
   });
 
   it("does nothing without a target", async () => {
@@ -90,6 +100,13 @@ describe("arr step", () => {
 });
 
 describe("testArr", () => {
+  it("GETs System/Info for jellyfin", async () => {
+    stub = await startStub(() => ({ status: 200, body: JSON.stringify({ ProductName: "Jellyfin Server", Version: "10.10.3" }) }));
+    const r = await testArr({ id: 1, name: "x", kind: "jellyfin", url: stub.url, apiKey: KEY });
+    expect(r).toEqual({ ok: true, message: "Connected to Jellyfin Server 10.10.3." });
+    expect(stub.seen[0]).toMatchObject({ method: "GET", url: "/System/Info" });
+  });
+
   it("GETs system/status", async () => {
     stub = await startStub(() => ({ status: 200, body: JSON.stringify({ appName: "Sonarr", version: "4.0.1" }) }));
     const r = await testArr({ id: 1, name: "x", kind: "sonarr", url: `${stub.url}/`, apiKey: KEY });

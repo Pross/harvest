@@ -15,8 +15,8 @@ const nameTaken = (deps: AppDeps, name: string, exceptId: number | null): boolea
 
 function renderForm(reply: FastifyReply, deps: AppDeps, target: ArrPublic | null, values: Record<string, string>, errors: FormErrors, status = 200) {
   const data = {
-    title: target ? `Target ${target.name}` : "New *arr target", nav: "arr", target, values, errors,
-    action: target ? `/arr-targets/${target.id}` : "/arr-targets", usedBy: target ? deps.stores.arrTargets.usedBy(target.id) : [],
+    title: target ? `Target ${target.name}` : "New library target", nav: "arr", target, values, errors,
+    action: target ? `/library-targets/${target.id}` : "/library-targets", usedBy: target ? deps.stores.arrTargets.usedBy(target.id) : [],
   };
   return render(reply, deps, "arr-form.eta", data, status);
 }
@@ -34,15 +34,15 @@ async function save(req: FastifyRequest, reply: FastifyReply, deps: AppDeps, exi
   if (nameTaken(deps, d.name, existing?.id ?? null)) return renderForm(reply, deps, existing, values, { name: "A target with this name already exists" }, 400);
   if (existing) deps.stores.arrTargets.update(existing.id, d);
   else deps.stores.arrTargets.create(d);
-  return redirectTo(reply, "/arr-targets", { kind: "ok", message: `Target "${d.name}" saved.` });
+  return redirectTo(reply, "/library-targets", { kind: "ok", message: `Target "${d.name}" saved.` });
 }
 
 function remove(req: IdReq, reply: FastifyReply, deps: AppDeps) {
   const t = findTarget(req, deps);
   if (!t) return reply.callNotFound();
   const jobs = deps.stores.arrTargets.delete(t.id);
-  const note = jobs.length > 0 ? ` It was used by ${jobs.length} job(s) (${jobs.join(", ")}); they no longer notify an *arr.` : "";
-  return redirectTo(reply, "/arr-targets", { kind: jobs.length > 0 ? "info" : "ok", message: `Target "${t.name}" deleted.${note}` });
+  const note = jobs.length > 0 ? ` It was used by ${jobs.length} job(s) (${jobs.join(", ")}); they no longer trigger a library scan.` : "";
+  return redirectTo(reply, "/library-targets", { kind: jobs.length > 0 ? "info" : "ok", message: `Target "${t.name}" deleted.${note}` });
 }
 
 async function runTest(deps: AppDeps, id: number): Promise<ArrTestResult> {
@@ -58,24 +58,25 @@ async function test(req: IdReq, reply: FastifyReply, deps: AppDeps) {
   if (!t) return reply.callNotFound();
   const result = await runTest(deps, t.id);
   if (req.headers["hx-request"] === "true") return renderFragment(reply, deps, "partials/integration-test-result.eta", { result });
-  return redirectTo(reply, "/arr-targets", { kind: result.ok ? "ok" : "error", message: `${t.name}: ${result.message}` });
+  return redirectTo(reply, "/library-targets", { kind: result.ok ? "ok" : "error", message: `${t.name}: ${result.message}` });
 }
 
 export function registerArrRoutes(app: FastifyInstance, deps: AppDeps): void {
-  app.get("/arr-targets", async (_req, reply) => {
+  app.get("/arr-targets", async (_req, reply) => reply.redirect("/library-targets", 301)); // old bookmarks
+  app.get("/library-targets", async (_req, reply) => {
     const targets = deps.stores.arrTargets.listPublic().map((t) => ({ ...t, jobCount: deps.stores.arrTargets.usedBy(t.id).length }));
-    return render(reply, deps, "arr-targets.eta", { title: "Sonarr / Radarr", nav: "arr", targets });
+    return render(reply, deps, "arr-targets.eta", { title: "Library scans", nav: "arr", targets });
   });
-  app.get("/arr-targets/new", async (_req, reply) => renderForm(reply, deps, null, { name: "", kind: "sonarr", url: "" }, {}));
-  app.post("/arr-targets", (req, reply) => save(req, reply, deps, null));
-  app.get<{ Params: { id: string } }>("/arr-targets/:id", async (req, reply) => {
+  app.get("/library-targets/new", async (_req, reply) => renderForm(reply, deps, null, { name: "", kind: "sonarr", url: "" }, {}));
+  app.post("/library-targets", (req, reply) => save(req, reply, deps, null));
+  app.get<{ Params: { id: string } }>("/library-targets/:id", async (req, reply) => {
     const t = findTarget(req, deps);
     return t ? renderForm(reply, deps, t, { name: t.name, kind: t.kind, url: t.url }, {}) : reply.callNotFound();
   });
-  app.post<{ Params: { id: string } }>("/arr-targets/:id", (req, reply) => {
+  app.post<{ Params: { id: string } }>("/library-targets/:id", (req, reply) => {
     const t = findTarget(req, deps);
     return t ? save(req, reply, deps, t) : reply.callNotFound();
   });
-  app.post<{ Params: { id: string } }>("/arr-targets/:id/delete", async (req, reply) => remove(req, reply, deps));
-  app.post<{ Params: { id: string } }>("/arr-targets/:id/test", (req, reply) => test(req, reply, deps));
+  app.post<{ Params: { id: string } }>("/library-targets/:id/delete", async (req, reply) => remove(req, reply, deps));
+  app.post<{ Params: { id: string } }>("/library-targets/:id/test", (req, reply) => test(req, reply, deps));
 }

@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { migrate, openDb } from "../src/db.js";
+import { setup } from "./store/helpers.js";
 
 describe("openDb", () => {
   it("applies all migrations to an in-memory database", () => {
@@ -48,5 +49,19 @@ describe("migrate", () => {
     expect(migrate(db, new URL("../src/migrations", import.meta.url).pathname)).toEqual([]);
     expect(db.pragma("foreign_keys", { simple: true })).toBe(1);
     expect(db.pragma("busy_timeout", { simple: true })).toBe(5000);
+  });
+});
+
+describe("015_jellyfin_targets", () => {
+  it("keeps targets and job links when the table is rebuilt, and accepts jellyfin", () => {
+    const { db, stores, jobId } = setup();
+    const id = stores.arrTargets.create({ name: "tv", kind: "sonarr", url: "http://x:1", apiKey: "k" });
+    stores.integrations.set(jobId, { arrTargetId: id, arrPath: "/data/tv", notifyOn: "always", notifyChannelIds: [3] });
+    const sql = fs.readFileSync(new URL("../src/migrations/015_jellyfin_targets.sql", import.meta.url), "utf8");
+    db.transaction(() => db.exec(sql))();
+    expect(stores.integrations.get(jobId)).toEqual({ arrTargetId: id, arrPath: "/data/tv", notifyOn: "always", notifyChannelIds: [3] });
+    expect(stores.arrTargets.getConfig(id)).toMatchObject({ name: "tv", apiKey: "k" });
+    expect(stores.arrTargets.create({ name: "jf", kind: "jellyfin", url: "http://j:8096", apiKey: "k" })).toBeGreaterThan(id);
+    expect(db.pragma("foreign_key_check")).toEqual([]);
   });
 });

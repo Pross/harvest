@@ -27,34 +27,34 @@ describe("arr target pages", () => {
     const { h, post, get } = await boot();
     const stub = await startStub(() => ({ status: 200, body: JSON.stringify({ appName: "Sonarr", version: "4" }) }));
     stubs.push(stub);
-    expect((await post("/arr-targets", { name: "tv", kind: "sonarr", url: stub.url, api_key: "KEY-ONE" })).statusCode).toBe(303);
+    expect((await post("/library-targets", { name: "tv", kind: "sonarr", url: stub.url, api_key: "KEY-ONE" })).statusCode).toBe(303);
     const id = h.deps.stores.arrTargets.listPublic()[0]!.id;
-    const page = (await get(`/arr-targets/${id}`)).body;
+    const page = (await get(`/library-targets/${id}`)).body;
     expect(page).not.toContain("KEY-ONE");
     expect(page).toContain('placeholder="unchanged"');
-    expect((await post(`/arr-targets/${id}`, { name: "tv2", kind: "sonarr", url: stub.url, api_key: "" })).statusCode).toBe(303);
+    expect((await post(`/library-targets/${id}`, { name: "tv2", kind: "sonarr", url: stub.url, api_key: "" })).statusCode).toBe(303);
     expect(h.deps.stores.arrTargets.getConfig(id)).toMatchObject({ name: "tv2", apiKey: "KEY-ONE" });
-    const t = await post(`/arr-targets/${id}/test`, {}, { "hx-request": "true" });
+    const t = await post(`/library-targets/${id}/test`, {}, { "hx-request": "true" });
     expect(t.body).toContain("Connected to Sonarr 4.");
     expect(stub.seen[0]!.headers["x-api-key"]).toBe("KEY-ONE");
-    expect((await post(`/arr-targets/${id}/delete`, {})).statusCode).toBe(303);
+    expect((await post(`/library-targets/${id}/delete`, {})).statusCode).toBe(303);
     expect(h.deps.stores.arrTargets.listPublic()).toHaveLength(0);
     expect(h.logs.join("")).not.toContain("KEY-ONE");
   });
 
   it("validates url scheme, requires key on create, rejects duplicate names", async () => {
     const { post } = await boot();
-    expect((await post("/arr-targets", { name: "a", kind: "sonarr", url: "ftp://x", api_key: "k" })).statusCode).toBe(400);
-    expect((await post("/arr-targets", { name: "a", kind: "sonarr", url: "http://x:1", api_key: "" })).statusCode).toBe(400);
-    expect((await post("/arr-targets", { name: "a", kind: "sonarr", url: "http://x:1", api_key: "k" })).statusCode).toBe(303);
-    expect((await post("/arr-targets", { name: "A", kind: "radarr", url: "http://x:1", api_key: "k" })).statusCode).toBe(400);
+    expect((await post("/library-targets", { name: "a", kind: "sonarr", url: "ftp://x", api_key: "k" })).statusCode).toBe(400);
+    expect((await post("/library-targets", { name: "a", kind: "sonarr", url: "http://x:1", api_key: "" })).statusCode).toBe(400);
+    expect((await post("/library-targets", { name: "a", kind: "sonarr", url: "http://x:1", api_key: "k" })).statusCode).toBe(303);
+    expect((await post("/library-targets", { name: "A", kind: "radarr", url: "http://x:1", api_key: "k" })).statusCode).toBe(400);
   });
 
   it("escapes names", async () => {
     const { h, post, get } = await boot();
-    await post("/arr-targets", { name: "<script>x</script>", kind: "radarr", url: "http://x:1", api_key: "k" });
+    await post("/library-targets", { name: "<script>x</script>", kind: "radarr", url: "http://x:1", api_key: "k" });
     expect(h.deps.stores.arrTargets.listPublic()).toHaveLength(1);
-    const html = (await get("/arr-targets")).body;
+    const html = (await get("/library-targets")).body;
     expect(html).not.toContain("<script>x</script>");
     expect(html).toContain("&lt;script&gt;");
   });
@@ -107,7 +107,7 @@ describe("job integrations and deletion of referenced rows", () => {
     const del = await post(`/channels/${c1}/delete`, {});
     expect(del.statusCode).toBe(303);
     expect(h.deps.stores.integrations.get(jobId).notifyChannelIds).toEqual([c2]);
-    await post(`/arr-targets/${arr}/delete`, {});
+    await post(`/library-targets/${arr}/delete`, {});
     expect(h.deps.stores.integrations.get(jobId).arrTargetId).toBeNull();
   });
 

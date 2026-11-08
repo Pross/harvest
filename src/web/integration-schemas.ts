@@ -6,10 +6,10 @@ import { NOTIFY_ON, type JobIntegration } from "../store/integration-store.js";
 import { bodyStrings, fieldErrors, type FormErrors } from "./host-schemas.js";
 
 const name = z.string().trim().min(1, "Name is required").max(80, "At most 80 characters");
-const httpUrl = httpUrlSchema("a full URL such as http://sonarr:8989");
+const httpUrl = httpUrlSchema("a full URL such as http://sonarr:8989 or http://jellyfin:8096");
 
-const arrSchema = z.object({ name, kind: z.enum(["sonarr", "radarr"]), url: httpUrl, api_key: z.string().default("") });
-export type ArrForm = { name: string; kind: "sonarr" | "radarr"; url: string; apiKey: string };
+const arrSchema = z.object({ name, kind: z.enum(["sonarr", "radarr", "jellyfin"]), url: httpUrl, api_key: z.string().default("") });
+export type ArrForm = { name: string; kind: "sonarr" | "radarr" | "jellyfin"; url: string; apiKey: string };
 
 /**
  * `apiKey` may be blank only when `requireKey` is false (edit: blank keeps the stored key). When `previousUrl` (the stored URL)
@@ -84,7 +84,7 @@ export function parseJobIntegration(body: unknown, known: { arr: Set<number>; ch
   const arrPath = (b["arr_path"] ?? "").trim();
   const errors: FormErrors = {};
   if (!notifyOn) errors["notify_on"] = "Choose when to notify";
-  if (arrTargetId !== null && arrPath === "") errors["arr_path"] = "Enter the folder as the *arr container sees it";
+  if (arrTargetId !== null && arrPath === "") errors["arr_path"] = "Enter the folder as the target sees it";
   if (arrPath.length > 1000) errors["arr_path"] = "Too long";
   if (!notifyOn || Object.keys(errors).length > 0) return { ok: false, errors };
   const raw = (body && typeof body === "object" ? (body as Record<string, unknown>)["channel"] : undefined);

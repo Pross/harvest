@@ -9,22 +9,23 @@
     <select id="kind" name="kind">
       <option value="sonarr"<% if (it.values.kind === "sonarr") { %> selected<% } %>>Sonarr (DownloadedEpisodesScan)</option>
       <option value="radarr"<% if (it.values.kind === "radarr") { %> selected<% } %>>Radarr (DownloadedMoviesScan)</option>
+      <option value="jellyfin"<% if (it.values.kind === "jellyfin") { %> selected<% } %>>Jellyfin (library scan of the folder)</option>
     </select>
     <label for="url">URL</label>
-    <input type="text" id="url" name="url" value="<%= it.values.url %>" required placeholder="http://sonarr:8989">
+    <input type="text" id="url" name="url" value="<%= it.values.url %>" required placeholder="http://sonarr:8989 or http://jellyfin:8096">
     <% if (it.errors.url) { %><div class="field-error"><%= it.errors.url %></div><% } %>
     <div class="hint">Private and LAN addresses are allowed by design: only administrators can set this. Include a URL base path if you use one.</div>
     <label for="api_key">API key</label>
     <input type="password" id="api_key" name="api_key" autocomplete="new-password" placeholder="<%= it.target ? 'unchanged' : '' %>">
     <% if (it.errors.api_key) { %><div class="field-error"><%= it.errors.api_key %></div><% } %>
-    <div class="hint">Stored encrypted and never shown again. Leave blank to keep the stored key.</div>
-    <p class="actions"><button type="submit" class="primary">Save target</button><a href="/arr-targets">Cancel</a></p>
+    <div class="hint">For Jellyfin create a key under Dashboard, API Keys. Stored encrypted and never shown again. Leave blank to keep the stored key.</div>
+    <p class="actions"><button type="submit" class="primary">Save target</button><a href="/library-targets">Cancel</a></p>
   </form>
   <% if (it.target) { %>
   <div class="card">
     <h3>Delete target</h3>
     <% if (it.usedBy.length > 0) { %><p class="muted">Used by: <%= it.usedBy.join(", ") %>. Deleting removes the target from those jobs.</p><% } %>
-    <form method="post" action="/arr-targets/<%= it.target.id %>/delete"><%~ it.csrfField %><button type="submit" class="danger" hx-confirm="Delete this target?">Delete target</button></form>
+    <form method="post" action="/library-targets/<%= it.target.id %>/delete"><%~ it.csrfField %><button type="submit" class="danger" hx-confirm="Delete this target?">Delete target</button></form>
   </div>
   <% } %>
 </section>

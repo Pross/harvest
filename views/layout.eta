@@ -147,7 +147,7 @@
   <h1><a href="/"><%= it.appName %></a></h1>
   <% if (it.user || it.authMode === "none") { %>
   <nav class="main" aria-label="Main">
-    <% for (const [key, label, href] of [["dashboard","Dashboard","/"],["hosts","Hosts","/hosts"],["jobs","Jobs","/jobs"],["arr","Sonarr/Radarr","/arr-targets"],["channels","Notifications","/channels"],["runs","Runs","/runs"],["activity","Activity","/activity"],["settings","Settings","/settings"]]) { %>
+    <% for (const [key, label, href] of [["dashboard","Dashboard","/"],["hosts","Hosts","/hosts"],["jobs","Jobs","/jobs"],["arr","Library scans","/library-targets"],["channels","Notifications","/channels"],["runs","Runs","/runs"],["activity","Activity","/activity"],["settings","Settings","/settings"]]) { %>
       <a href="<%= href %>"<% if (it.nav === key) { %> class="active" aria-current="page"<% } %>><%= label %></a>
     <% } %>
   </nav>
