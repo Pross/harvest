@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ArrConfig } from "../store/arr-store.js";
 import type { Logger } from "../logger.js";
@@ -134,34 +133,21 @@ export function createArrStep(deps: { stores: ArrStores; logger: Logger }): Afte
   };
 }
 
-/** The folder to refresh for a removed file: its nearest ancestor that still exists, never above the job's local root. */
-export function nearestExistingDir(localPath: string, file: string, exists: (p: string) => boolean = existsSync): string {
-  const root = path.resolve(localPath);
-  let dir = path.dirname(path.resolve(file));
-  while (dir !== root && dir.startsWith(root + path.sep) && !exists(dir)) dir = path.dirname(dir);
-  return dir.startsWith(root) ? dir : root;
-}
-
 /**
- * After a mirror sweep: tell Jellyfin to refresh the folders whose files left, so it drops them from the library.
+ * After a mirror sweep: ask Jellyfin for a full library refresh so it drops the removed items. A targeted
+ * Media/Updated on the folder did not remove them in practice, and a full refresh validates every library.
  * Sonarr and Radarr are not asked: their scan command imports files and does not notice removals.
  */
 export function createArrDeleteStep(deps: { stores: ArrStores; logger: Logger }): AfterDeleteStep {
   return {
     async run(input: AfterDeleteInput): Promise<PostResult> {
       const link = deps.stores.integrations.get(input.job.id);
-      if (link.arrTargetId === null || !link.arrPath || input.deletedPaths.length === 0) return { warnings: [] };
+      if (link.arrTargetId === null || input.deletedPaths.length === 0) return { warnings: [] };
       const cfg = loadTarget(deps, link.arrTargetId);
       if (typeof cfg === "string") return { warnings: [`library scan: ${cfg}`] };
       if (cfg.kind !== "jellyfin") return { warnings: [] };
-      const dirs = new Set<string>();
-      for (const f of input.deletedPaths) {
-        const mapped = mapToArrPath(input.job.localPath, link.arrPath, nearestExistingDir(input.job.localPath, f));
-        if (mapped !== null) dirs.add(mapped);
-      }
-      if (dirs.size === 0) return { warnings: [] };
       try {
-        await jellyfinUpdated(cfg, [...dirs], "Modified", input.signal);
+        await httpRequest({ url: joinUrl(cfg.url, "/Library/Refresh"), method: "POST", headers: jellyfinHeaders(cfg.apiKey), signal: input.signal });
         return { warnings: [] };
       } catch (err) {
         const why = explainError(err, deps.logger, { target: cfg.name }, UNREADABLE);
