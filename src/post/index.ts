@@ -50,10 +50,7 @@ export function createPostPipeline(deps: PostPipelineDeps): PostPipeline {
       }
       return { warnings };
     },
-    afterDelete(input: AfterDeleteInput) {
-      const { arrDelete } = deps;
-      return arrDelete ? guard(logger, "library scan", {}, () => arrDelete.run(input)) : Promise.resolve({ warnings: [] });
-    },
+    afterDelete: (input: AfterDeleteInput) => (deps.arrDelete ? guard(logger, "library scan", {}, () => deps.arrDelete!.run(input)) : Promise.resolve({ warnings: [] })),
     afterRun(input) {
       const { notifier } = deps;
       return notifier ? guard(logger, "notifications", {}, () => notifier.run(input)) : Promise.resolve({ warnings: [] });

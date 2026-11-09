@@ -11,7 +11,7 @@ import { recordDryRun } from "./dry-run.js";
 import type { EventBus } from "./events.js";
 import type { RunJob } from "./manager-types.js";
 import { findMissingLocal } from "./mirror-fs.js";
-import { assertMirrorAllowed, runMirror } from "./mirror-sweep.js";
+import { announceDeletes, assertMirrorAllowed, runMirror } from "./mirror-sweep.js";
 import { ensureStaging, type SameDevice } from "./paths.js";
 import type { DownloadFileRequest } from "./range-downloader.js";
 import { fitToSpace, unitFits, type SpaceReservations, type Statfs, defaultStatfs } from "./space.js";
@@ -108,19 +108,9 @@ class Execution {
     const { failedUnits, droppedUnits } = this.tally;
     await runMirror({
       job: this.job, runId: this.runId, stores: this.deps.stores, listing, now: this.now, signal: this.signal,
-      warn: (m) => { this.postWarnings.push(m); this.note("mirror", "warn", m); }, note: (m, meta) => this.note("mirror", "info", m, meta),
-      onDeleted: (deletedPaths) => this.announceDeletes(deletedPaths),
+      warn: (m) => { this.postWarnings.push(m); this.note("mirror", "warn", m); }, note: (m, meta) => this.note("mirror", "info", m, meta), onDeleted: announceDeletes(this.deps.post, this.job, this.runId, this.signal),
     }, dryRun, failedUnits === 0 && droppedUnits === 0);
     return this.finish(requested === "succeeded" && this.postWarnings.length > 0 ? "partial" : requested, summary, plan, kept);
-  }
-
-  /** Tells the library scan target that the mirror removed files. Failures are warnings (the run becomes partial), never errors. */
-  private async announceDeletes(deletedPaths: string[]): Promise<void> {
-    const { post } = this.deps;
-    if (!post?.afterDelete) return;
-    const res = await post.afterDelete({ job: this.job, runId: this.runId, signal: this.signal, deletedPaths })
-      .catch((err: unknown) => ({ warnings: [`library scan failed: ${err instanceof Error ? err.message : String(err)}`] }));
-    for (const w of res.warnings) { this.postWarnings.push(w); this.note("mirror", "warn", w); }
   }
 
   private async listRemote(session: EngineSession): Promise<RemoteEntry[]> {
