@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { commonDir, createArrDeleteStep, createArrStep, mapToArrPath, nearestExistingDir, testArr } from "../../src/post/arr.js";
+import { commonDir, createArrDeleteStep, createArrStep, mapToArrPath, testArr } from "../../src/post/arr.js";
 import { buildLogger } from "../../src/logger.js";
 import type { JobConfig } from "../../src/domain.js";
 import { setup } from "../store/helpers.js";
@@ -157,14 +157,15 @@ describe("arr delete step", () => {
     return { step, input, root };
   }
 
-  it("asks jellyfin to refresh the nearest existing folder of each removed file, once", async () => {
+  it("asks jellyfin for one full library refresh after files were removed", async () => {
     const { step, input, root } = await delFixture("jellyfin");
     const deletedPaths = [path.join(root, "Show/S01/a.mkv"), path.join(root, "Show/S01/b.mkv"), path.join(root, "Gone/S01/c.mkv")];
     expect(await step.run({ ...input, deletedPaths })).toEqual({ warnings: [] });
+    expect(stub!.seen).toHaveLength(1);
     const r = stub!.seen[0]!;
-    expect(r.url).toBe("/Library/Media/Updated");
+    expect(r.method).toBe("POST");
+    expect(r.url).toBe("/Library/Refresh");
     expect(r.headers["authorization"]).toBe(`MediaBrowser Token="${KEY}"`);
-    expect(JSON.parse(r.body)).toEqual({ Updates: [{ Path: "/data/tv/Show/S01", UpdateType: "Modified" }, { Path: "/data/tv", UpdateType: "Modified" }] });
   });
 
   it("does nothing for sonarr and radarr, or when nothing was removed", async () => {
@@ -184,14 +185,5 @@ describe("arr delete step", () => {
     const r = await step.run({ job: f.input.job, runId: 1, signal: f.input.signal, deletedPaths: ["/l/Show/a.mkv"] });
     expect(r.warnings[0]).toContain("refresh after delete failed");
     expect(r.warnings[0]).not.toContain(KEY);
-  });
-});
-
-describe("nearestExistingDir", () => {
-  it("climbs to the closest ancestor that exists and never above the root", () => {
-    const exists = (p: string) => p === "/l" || p === "/l/Show";
-    expect(nearestExistingDir("/l", "/l/Show/S01/a.mkv", exists)).toBe("/l/Show");
-    expect(nearestExistingDir("/l", "/l/Gone/S01/a.mkv", exists)).toBe("/l");
-    expect(nearestExistingDir("/l", "/l/a.mkv", () => false)).toBe("/l");
   });
 });
