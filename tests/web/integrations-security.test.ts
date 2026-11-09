@@ -21,7 +21,7 @@ async function boot() {
 describe("arr target URLs and credentials", () => {
   it.each(["http://user:pass@sonarr:8989", "ftp://sonarr:8989", "javascript:alert(1)", "sonarr:8989"])("rejects %s", async (url) => {
     const { post, h } = await boot();
-    const r = await post("/arr-targets", { name: "tv", kind: "sonarr", url, api_key: "KEY" });
+    const r = await post("/library-targets", { name: "tv", kind: "sonarr", url, api_key: "KEY" });
     expect(r.statusCode).toBe(400);
     expect(h.deps.stores.arrTargets.listPublic()).toEqual([]);
     expect(r.body).not.toContain("pass@");
@@ -30,12 +30,12 @@ describe("arr target URLs and credentials", () => {
   it("requires the API key again when the URL moves to another host, but not for a path change on the same host", async () => {
     const { post, h } = await boot();
     const id = h.deps.stores.arrTargets.create({ name: "tv", kind: "sonarr", url: "http://sonarr:8989", apiKey: "KEY-ONE" });
-    const moved = await post(`/arr-targets/${id}`, { name: "tv", kind: "sonarr", url: "http://evil.example:8989", api_key: "" });
+    const moved = await post(`/library-targets/${id}`, { name: "tv", kind: "sonarr", url: "http://evil.example:8989", api_key: "" });
     expect(moved.statusCode).toBe(400);
     expect(moved.body).toContain("different server");
     expect(h.deps.stores.arrTargets.getConfig(id)).toMatchObject({ url: "http://sonarr:8989", apiKey: "KEY-ONE" });
-    expect((await post(`/arr-targets/${id}`, { name: "tv", kind: "sonarr", url: "http://sonarr:8989/sub", api_key: "" })).statusCode).toBe(303);
-    expect((await post(`/arr-targets/${id}`, { name: "tv", kind: "sonarr", url: "https://other:9", api_key: "KEY-TWO" })).statusCode).toBe(303);
+    expect((await post(`/library-targets/${id}`, { name: "tv", kind: "sonarr", url: "http://sonarr:8989/sub", api_key: "" })).statusCode).toBe(303);
+    expect((await post(`/library-targets/${id}`, { name: "tv", kind: "sonarr", url: "https://other:9", api_key: "KEY-TWO" })).statusCode).toBe(303);
     expect(h.deps.stores.arrTargets.getConfig(id)).toMatchObject({ url: "https://other:9", apiKey: "KEY-TWO" });
   });
 });
@@ -101,9 +101,9 @@ describe("errors are not mislabeled", () => {
     const { post, h } = await boot();
     const id = h.deps.stores.arrTargets.create({ name: "tv", kind: "sonarr", url: "http://x:1", apiKey: "k" });
     h.deps.stores.arrTargets.getConfig = () => { throw new ConfigUnreadableError("*arr target", id, new Error("bad decrypt")); };
-    expect((await post(`/arr-targets/${id}/test`, {}, { "hx-request": "true" })).body).toContain("cannot be decrypted");
+    expect((await post(`/library-targets/${id}/test`, {}, { "hx-request": "true" })).body).toContain("cannot be decrypted");
     h.deps.stores.arrTargets.getConfig = () => { throw new TypeError("arr-internal-bug"); };
-    const t2 = await post(`/arr-targets/${id}/test`, {}, { "hx-request": "true" });
+    const t2 = await post(`/library-targets/${id}/test`, {}, { "hx-request": "true" });
     expect(t2.body).toContain("unexpected error");
     expect(h.logs.join("")).toContain("arr-internal-bug");
   });

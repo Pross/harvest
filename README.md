@@ -35,7 +35,7 @@ Self-hosted seedbox to homelab sync. Pulls files from FTP/FTPS/SFTP servers to l
 - **Bandwidth profiles:** global and time-of-day-based limits (timezone-aware).
 - **Archive extraction:** zip/7z via `7zz`, RAR via `unar` (extraction happens in staging before atomic move).
 - **Post-actions:** chmod (group/others permissions inherited from process PUID/UMASK).
-- **Sonarr/Radarr scan:** webhook trigger with per-job path mapping (Harvest path prefix <-> Sonarr host path).
+- **Library scans (Sonarr/Radarr/Jellyfin):** after each unit Harvest triggers a scan of the finished folder, with per-job path mapping (Harvest path prefix <-> the target's path). Managed on the Library scans page; Jellyfin uses an API key and a targeted `/Library/Media/Updated`.
 - **Notifications:** ntfy, Discord, Telegram, Pushover, generic webhook (native Node senders; no Apprise).
 
 ### Phase 3 (In progress)
@@ -339,7 +339,7 @@ RCLONE_BIN=./.tools/rclone npm run dev
 ```
 src/
   core:           index.ts config.ts logger.ts db.ts crypto.ts
-  migrations/     Database schema (001-010)
+  migrations/     Database schema (001-015)
   engine/         RcloneEngine, process spawning, error mapping
   planner/        Planning, ledger, filters, settle, rules
   run/            Executor, range downloader, transfer, verify, finalize, space, post-actions

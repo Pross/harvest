@@ -2,7 +2,7 @@ import type { DB } from "../db.js";
 import { ConfigUnreadableError } from "./errors.js";
 import type { Crypto } from "./host-store.js";
 
-export type ArrKind = "sonarr" | "radarr";
+export type ArrKind = "sonarr" | "radarr" | "jellyfin";
 export type ArrPublic = { id: number; name: string; kind: ArrKind; url: string; hasKey: boolean };
 export type ArrConfig = { id: number; name: string; kind: ArrKind; url: string; apiKey: string };
 export type ArrInput = { name: string; kind: ArrKind; url: string; apiKey: string };
