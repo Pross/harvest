@@ -1,10 +1,11 @@
+import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ArrConfig } from "../store/arr-store.js";
 import type { Logger } from "../logger.js";
 import type { Stores } from "../store/index.js";
 import { explainError } from "./explain.js";
 import { IntegrationHttpError, httpRequest, joinUrl } from "./http.js";
-import type { AfterPromoteInput, AfterPromoteStep, PostResult } from "./types.js";
+import type { AfterDeleteInput, AfterDeleteStep, AfterPromoteInput, AfterPromoteStep, PostResult } from "./types.js";
 
 const COMMAND = { sonarr: "DownloadedEpisodesScan", radarr: "DownloadedMoviesScan" } as const;
 
@@ -74,15 +75,28 @@ export async function testArr(cfg: ArrConfig, signal?: AbortSignal): Promise<Arr
   }
 }
 
-async function scan(cfg: ArrConfig, dir: string, signal: AbortSignal): Promise<void> {
-  if (cfg.kind === "jellyfin") {
-    // Targeted library scan: Jellyfin refreshes the library that contains this folder (204 No Content).
-    await httpRequest({
-      url: joinUrl(cfg.url, "/Library/Media/Updated"), method: "POST", headers: jellyfinHeaders(cfg.apiKey),
-      json: { Updates: [{ Path: dir, UpdateType: "Created" }] }, signal,
-    });
-    return;
+/** Targeted Jellyfin scan: it refreshes the library folder at each path (204 No Content). */
+async function jellyfinUpdated(cfg: ArrConfig, dirs: string[], type: "Created" | "Modified", signal: AbortSignal): Promise<void> {
+  await httpRequest({
+    url: joinUrl(cfg.url, "/Library/Media/Updated"), method: "POST", headers: jellyfinHeaders(cfg.apiKey),
+    json: { Updates: dirs.map((Path) => ({ Path, UpdateType: type })) }, signal,
+  });
+}
+
+/** Test scan: the same Media/Updated request a run sends, for a folder the user typed. Jellyfin only (an *arr scan would import files). */
+export async function testScan(cfg: ArrConfig, dir: string, signal?: AbortSignal): Promise<ArrTestResult> {
+  if (cfg.kind !== "jellyfin") return { ok: false, message: "Test scan is only available for Jellyfin targets." };
+  try {
+    await jellyfinUpdated(cfg, [dir], "Modified", signal ?? AbortSignal.timeout(15_000));
+    return { ok: true, message: `Jellyfin accepted the scan request for ${dir}. It only refreshes a folder inside a library: check Dashboard > Logs in a few seconds.` };
+  } catch (err) {
+    if (err instanceof IntegrationHttpError) return { ok: false, message: err.message === "HTTP 401" ? "HTTP 401: the API key was rejected." : err.message };
+    throw err;
   }
+}
+
+async function scan(cfg: ArrConfig, dir: string, signal: AbortSignal): Promise<void> {
+  if (cfg.kind === "jellyfin") return jellyfinUpdated(cfg, [dir], "Created", signal);
   await httpRequest({
     url: joinUrl(cfg.url, "/api/v3/command"), method: "POST", headers: { "x-api-key": cfg.apiKey },
     json: { name: COMMAND[cfg.kind], path: dir }, signal,
@@ -115,6 +129,43 @@ export function createArrStep(deps: { stores: ArrStores; logger: Logger }): Afte
       } catch (err) {
         const why = explainError(err, deps.logger, { target: cfg.name }, UNREADABLE);
         return { warnings: [`library scan ${cfg.name}: scan of ${input.unitKey} failed: ${why}`] };
+      }
+    },
+  };
+}
+
+/** The folder to refresh for a removed file: its nearest ancestor that still exists, never above the job's local root. */
+export function nearestExistingDir(localPath: string, file: string, exists: (p: string) => boolean = existsSync): string {
+  const root = path.resolve(localPath);
+  let dir = path.dirname(path.resolve(file));
+  while (dir !== root && dir.startsWith(root + path.sep) && !exists(dir)) dir = path.dirname(dir);
+  return dir.startsWith(root) ? dir : root;
+}
+
+/**
+ * After a mirror sweep: tell Jellyfin to refresh the folders whose files left, so it drops them from the library.
+ * Sonarr and Radarr are not asked: their scan command imports files and does not notice removals.
+ */
+export function createArrDeleteStep(deps: { stores: ArrStores; logger: Logger }): AfterDeleteStep {
+  return {
+    async run(input: AfterDeleteInput): Promise<PostResult> {
+      const link = deps.stores.integrations.get(input.job.id);
+      if (link.arrTargetId === null || !link.arrPath || input.deletedPaths.length === 0) return { warnings: [] };
+      const cfg = loadTarget(deps, link.arrTargetId);
+      if (typeof cfg === "string") return { warnings: [`library scan: ${cfg}`] };
+      if (cfg.kind !== "jellyfin") return { warnings: [] };
+      const dirs = new Set<string>();
+      for (const f of input.deletedPaths) {
+        const mapped = mapToArrPath(input.job.localPath, link.arrPath, nearestExistingDir(input.job.localPath, f));
+        if (mapped !== null) dirs.add(mapped);
+      }
+      if (dirs.size === 0) return { warnings: [] };
+      try {
+        await jellyfinUpdated(cfg, [...dirs], "Modified", input.signal);
+        return { warnings: [] };
+      } catch (err) {
+        const why = explainError(err, deps.logger, { target: cfg.name }, UNREADABLE);
+        return { warnings: [`library scan ${cfg.name}: refresh after delete failed: ${why}`] };
       }
     },
   };

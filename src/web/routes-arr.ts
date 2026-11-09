@@ -1,9 +1,9 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { testArr, type ArrTestResult } from "../post/arr.js";
+import { testArr, testScan, type ArrTestResult } from "../post/arr.js";
 import { explainError } from "../post/explain.js";
 import type { ArrPublic } from "../store/arr-store.js";
 import type { AppDeps } from "./deps.js";
-import { parseId, type FormErrors } from "./host-schemas.js";
+import { bodyStrings, parseId, type FormErrors } from "./host-schemas.js";
 import { redirectTo, render, renderFragment } from "./helpers.js";
 import { arrValues, parseArrForm } from "./integration-schemas.js";
 
@@ -61,6 +61,23 @@ async function test(req: IdReq, reply: FastifyReply, deps: AppDeps) {
   return redirectTo(reply, "/library-targets", { kind: result.ok ? "ok" : "error", message: `${t.name}: ${result.message}` });
 }
 
+async function testScanRoute(req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply, deps: AppDeps) {
+  const t = findTarget(req, deps);
+  if (!t) return reply.callNotFound();
+  const dir = (bodyStrings(req.body)["path"] ?? "").trim();
+  let result: ArrTestResult;
+  if (dir === "" || dir.length > 1000 || dir.includes("\0")) result = { ok: false, message: "Enter the folder as Jellyfin sees it (for example /data/tv)." };
+  else {
+    try {
+      result = await testScan(deps.stores.arrTargets.getConfig(t.id), dir);
+    } catch (err) {
+      result = { ok: false, message: explainError(err, deps.logger, { arrTargetId: t.id }, KEY_UNREADABLE) };
+    }
+  }
+  if (req.headers["hx-request"] === "true") return renderFragment(reply, deps, "partials/integration-test-result.eta", { result });
+  return redirectTo(reply, "/library-targets", { kind: result.ok ? "ok" : "error", message: `${t.name}: ${result.message}` });
+}
+
 export function registerArrRoutes(app: FastifyInstance, deps: AppDeps): void {
   app.get("/arr-targets", async (_req, reply) => reply.redirect("/library-targets", 301)); // old bookmarks
   app.get("/library-targets", async (_req, reply) => {
@@ -79,4 +96,5 @@ export function registerArrRoutes(app: FastifyInstance, deps: AppDeps): void {
   });
   app.post<{ Params: { id: string } }>("/library-targets/:id/delete", async (req, reply) => remove(req, reply, deps));
   app.post<{ Params: { id: string } }>("/library-targets/:id/test", (req, reply) => test(req, reply, deps));
+  app.post<{ Params: { id: string } }>("/library-targets/:id/test-scan", (req, reply) => testScanRoute(req, reply, deps));
 }

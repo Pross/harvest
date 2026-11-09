@@ -23,6 +23,12 @@ export interface AfterPromoteStep {
   run(input: AfterPromoteInput): Promise<PostResult>;
 }
 
+/** Runs after a mirror sweep removed local files. `deletedPaths` are absolute local paths that no longer exist (deleted now or already gone). */
+export type AfterDeleteInput = PostContext & { deletedPaths: string[] };
+export interface AfterDeleteStep {
+  run(input: AfterDeleteInput): Promise<PostResult>;
+}
+
 export type RunSummary = {
   filesOk: number;
   filesFailed: number;
@@ -44,5 +50,7 @@ export interface PostPipeline {
   /** Optional so pipelines built before the title action keep working. */
   titleInStaging?(input: TitleInput): Promise<PostResult & { added: string[] }>;
   afterPromote(input: AfterPromoteInput): Promise<PostResult>;
+  /** Optional so pipelines built before mirror deletes were announced keep working. */
+  afterDelete?(input: AfterDeleteInput): Promise<PostResult>;
   afterRun(input: Parameters<RunNotifier["run"]>[0]): Promise<PostResult>;
 }

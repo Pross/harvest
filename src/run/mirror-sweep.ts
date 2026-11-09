@@ -5,6 +5,7 @@ import { planMirrorDeletes } from "../planner/mirror.js";
 import type { Stores } from "../store/index.js";
 import { DRY_ROW_CAP } from "./dry-run.js";
 import { sweepLocal } from "./mirror-fs.js";
+import { finalPathFor } from "./paths.js";
 
 /** run_files state of a local file a mirror run would delete (dry runs only). */
 export const DRY_DELETE = "would_delete";
@@ -27,6 +28,8 @@ export type MirrorCtx = {
   /** Surfaces a problem as an activity entry and makes the run `partial`. */
   warn: (message: string) => void;
   note: (message: string, meta?: unknown) => void;
+  /** Called with the absolute local paths the sweep removed (or found already gone), so a media server can be told. */
+  onDeleted?: (localPaths: string[]) => Promise<void>;
 };
 
 /** Dry run: record what a real run would delete (it marks nothing missing, so a dry run never counts as the first of the two listings), then arm the job so a real run is allowed (unless it was edited meanwhile). Nothing is touched on disk. */
@@ -57,6 +60,8 @@ async function realMirror(ctx: MirrorCtx): Promise<void> {
   if (plan.deletes.length === 0) return;
   const out = await sweepLocal(job.localPath, plan.deletes, (p) => stores.ledger.forgetFile(job.id, p), ctx.signal);
   ctx.note(`Mirror removed ${out.deleted.length} local file(s) that left the remote`, { deleted: out.deleted.slice(0, 200), gone: out.gone.length, kept: out.kept.length });
+  const removed = [...out.deleted, ...out.gone].map((p) => finalPathFor(job.localPath, p));
+  if (removed.length > 0 && ctx.onDeleted) await ctx.onDeleted(removed);
   for (const k of out.kept.slice(0, 20)) ctx.warn(`Mirror kept ${k.path}: ${k.reason}`);
   if (out.kept.length > 20) ctx.warn(`Mirror kept ${out.kept.length - 20} more file(s); see the first 20 above`);
 }

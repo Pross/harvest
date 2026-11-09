@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { ALLOW_LARGE_TTL_MS, DRY_DELETE, DRY_MIRROR_CATEGORY, type DryMirrorSummary } from "../../src/run/mirror-sweep.js";
+import type { PostPipeline } from "../../src/post/types.js";
 import { makeData } from "../helpers/fake-session.js";
 import { makeHarness, REMOTE_ROOT } from "./executor-harness.js";
 
@@ -256,5 +257,33 @@ describe("mirror: allowing one large delete", () => {
     await h.exec();
     expect(existsSync(at(h, "a.bin"))).toBe(true);
     expect(h.jobRow().mirrorAllowLargeAt).not.toBeNull();
+  });
+});
+
+describe("mirror: library scan after delete", () => {
+  const pipeline = (afterDelete: PostPipeline["afterDelete"]): PostPipeline => ({
+    extractInStaging: async () => ({ warnings: [], added: [], removed: [] }), afterPromote: async () => ({ warnings: [] }),
+    afterRun: async () => ({ warnings: [] }), ...(afterDelete ? { afterDelete } : {}),
+  });
+
+  it("reports the removed local paths once the sweep deleted them", async () => {
+    const h = await synced(["a.bin", "b.bin", "c.bin"]);
+    const seen: string[][] = [];
+    h.deps.post = pipeline(async (i) => { seen.push(i.deletedPaths); return { warnings: [] }; });
+    h.session.files.delete(remote("b.bin"));
+    await h.exec(); // first sighting: nothing deleted, nothing announced
+    expect(seen).toEqual([]);
+    await h.exec();
+    expect(seen).toEqual([[at(h, "b.bin")]]);
+  });
+
+  it("a failing scan makes the run partial but the files stay deleted", async () => {
+    const h = await synced(["a.bin", "b.bin", "c.bin"]);
+    h.deps.post = pipeline(async () => ({ warnings: ["library scan jf: refresh after delete failed: HTTP 500"] }));
+    h.session.files.delete(remote("b.bin"));
+    await h.exec();
+    const r = await h.exec();
+    expect(r.state).toBe("partial");
+    expect(existsSync(at(h, "b.bin"))).toBe(false);
   });
 });

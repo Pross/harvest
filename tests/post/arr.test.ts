@@ -1,5 +1,8 @@
+import { mkdirSync, mkdtempSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { commonDir, createArrStep, mapToArrPath, testArr } from "../../src/post/arr.js";
+import { commonDir, createArrDeleteStep, createArrStep, mapToArrPath, nearestExistingDir, testArr } from "../../src/post/arr.js";
 import { buildLogger } from "../../src/logger.js";
 import type { JobConfig } from "../../src/domain.js";
 import { setup } from "../store/helpers.js";
@@ -141,5 +144,54 @@ describe("testArr", () => {
     const r = await testArr({ id: 1, name: "x", kind: "sonarr", url: stub.url, apiKey: KEY });
     expect(r.ok).toBe(false);
     expect(r.message).not.toContain(KEY);
+  });
+});
+
+describe("arr delete step", () => {
+  async function delFixture(kind: "sonarr" | "radarr" | "jellyfin") {
+    const f = await fixture(() => ({ status: 204, body: "" }), kind);
+    const root = mkdtempSync(path.join(os.tmpdir(), "harvest-del-"));
+    mkdirSync(path.join(root, "Show", "S01"), { recursive: true });
+    const step = createArrDeleteStep({ stores: f.s.stores, logger });
+    const input = { job: { ...f.input.job, localPath: root }, runId: 1, signal: new AbortController().signal };
+    return { step, input, root };
+  }
+
+  it("asks jellyfin to refresh the nearest existing folder of each removed file, once", async () => {
+    const { step, input, root } = await delFixture("jellyfin");
+    const deletedPaths = [path.join(root, "Show/S01/a.mkv"), path.join(root, "Show/S01/b.mkv"), path.join(root, "Gone/S01/c.mkv")];
+    expect(await step.run({ ...input, deletedPaths })).toEqual({ warnings: [] });
+    const r = stub!.seen[0]!;
+    expect(r.url).toBe("/Library/Media/Updated");
+    expect(r.headers["authorization"]).toBe(`MediaBrowser Token="${KEY}"`);
+    expect(JSON.parse(r.body)).toEqual({ Updates: [{ Path: "/data/tv/Show/S01", UpdateType: "Modified" }, { Path: "/data/tv", UpdateType: "Modified" }] });
+  });
+
+  it("does nothing for sonarr and radarr, or when nothing was removed", async () => {
+    for (const kind of ["sonarr", "radarr"] as const) {
+      const { step, input, root } = await delFixture(kind);
+      expect(await step.run({ ...input, deletedPaths: [path.join(root, "Show/a.mkv")] })).toEqual({ warnings: [] });
+      await stub!.close(); stub = undefined;
+    }
+    const { step, input } = await delFixture("jellyfin");
+    expect(await step.run({ ...input, deletedPaths: [] })).toEqual({ warnings: [] });
+    expect(stub!.seen).toHaveLength(0);
+  });
+
+  it("turns a failed refresh into a warning without leaking the key", async () => {
+    const f = await fixture(() => ({ status: 500, body: `oops ${KEY}` }), "jellyfin");
+    const step = createArrDeleteStep({ stores: f.s.stores, logger });
+    const r = await step.run({ job: f.input.job, runId: 1, signal: f.input.signal, deletedPaths: ["/l/Show/a.mkv"] });
+    expect(r.warnings[0]).toContain("refresh after delete failed");
+    expect(r.warnings[0]).not.toContain(KEY);
+  });
+});
+
+describe("nearestExistingDir", () => {
+  it("climbs to the closest ancestor that exists and never above the root", () => {
+    const exists = (p: string) => p === "/l" || p === "/l/Show";
+    expect(nearestExistingDir("/l", "/l/Show/S01/a.mkv", exists)).toBe("/l/Show");
+    expect(nearestExistingDir("/l", "/l/Gone/S01/a.mkv", exists)).toBe("/l");
+    expect(nearestExistingDir("/l", "/l/a.mkv", () => false)).toBe("/l");
   });
 });

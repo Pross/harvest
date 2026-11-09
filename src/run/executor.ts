@@ -109,8 +109,18 @@ class Execution {
     await runMirror({
       job: this.job, runId: this.runId, stores: this.deps.stores, listing, now: this.now, signal: this.signal,
       warn: (m) => { this.postWarnings.push(m); this.note("mirror", "warn", m); }, note: (m, meta) => this.note("mirror", "info", m, meta),
+      onDeleted: (deletedPaths) => this.announceDeletes(deletedPaths),
     }, dryRun, failedUnits === 0 && droppedUnits === 0);
     return this.finish(requested === "succeeded" && this.postWarnings.length > 0 ? "partial" : requested, summary, plan, kept);
+  }
+
+  /** Tells the library scan target that the mirror removed files. Failures are warnings (the run becomes partial), never errors. */
+  private async announceDeletes(deletedPaths: string[]): Promise<void> {
+    const { post } = this.deps;
+    if (!post?.afterDelete) return;
+    const res = await post.afterDelete({ job: this.job, runId: this.runId, signal: this.signal, deletedPaths })
+      .catch((err: unknown) => ({ warnings: [`library scan failed: ${err instanceof Error ? err.message : String(err)}`] }));
+    for (const w of res.warnings) { this.postWarnings.push(w); this.note("mirror", "warn", w); }
   }
 
   private async listRemote(session: EngineSession): Promise<RemoteEntry[]> {

@@ -14,6 +14,15 @@
         <form method="post" action="/library-targets/<%= t.id %>/test"><%~ it.csrfField %><button type="submit" hx-post="/library-targets/<%= t.id %>/test" hx-target="#test-<%= t.id %>">Test</button></form>
         <form method="post" action="/library-targets/<%= t.id %>/delete"><%~ it.csrfField %><button type="submit" class="danger" hx-confirm="Delete target <%= t.name %>?<%= t.jobCount > 0 ? ' It is used by ' + t.jobCount + ' job(s); they will stop notifying it.' : '' %>">Delete</button></form>
       </td></tr>
+    <% if (t.kind === "jellyfin") { %>
+    <tr class="result-row"><td colspan="5">
+      <form method="post" action="/library-targets/<%= t.id %>/test-scan" class="actions"><%~ it.csrfField %>
+        <label for="scan-path-<%= t.id %>">Test scan of folder</label>
+        <input type="text" id="scan-path-<%= t.id %>" name="path" placeholder="/data/tv/Show" maxlength="1000">
+        <button type="submit" hx-post="/library-targets/<%= t.id %>/test-scan" hx-include="closest form" hx-target="#test-<%= t.id %>">Test scan</button>
+      </form>
+    </td></tr>
+    <% } %>
     <tr class="result-row"><td colspan="5"><div id="test-<%= t.id %>" aria-live="polite"></div></td></tr>
   <% } %>
   </tbody></table>

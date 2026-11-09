@@ -5,7 +5,7 @@ import type { HostConfig, JobConfig } from "./domain.js";
 import type { TransferEngine } from "./engine/types.js";
 import { resolveGlobalRate, type BwSettings } from "./run/bandwidth.js";
 import { createBandwidthScheduler, type BandwidthScheduler } from "./run/bandwidth-scheduler.js";
-import { createArrStep } from "./post/arr.js";
+import { createArrDeleteStep, createArrStep } from "./post/arr.js";
 import { createDefaultPostPipeline } from "./post/index.js";
 import { createEarlyNotifier } from "./post/notify/early.js";
 import { createRunNotifier } from "./post/notify/index.js";
@@ -78,7 +78,7 @@ export function buildRunPipeline(i: PipelineInput): RunPipeline {
     fileGate: createGate(i.config.MAX_CONCURRENT_FILES),
     reservations: createSpaceReservations(),
     onFollowup: (jobId, atMs) => manager?.scheduleFollowup(jobId, atMs),
-    post: createDefaultPostPipeline({ postStore: i.stores.post, logger: i.logger, arr: createArrStep({ stores: i.stores, logger: i.logger }), notifier }),
+    post: createDefaultPostPipeline({ postStore: i.stores.post, logger: i.logger, arr: createArrStep({ stores: i.stores, logger: i.logger }), arrDelete: createArrDeleteStep({ stores: i.stores, logger: i.logger }), notifier }),
   });
   manager = createRunManager({
     runJob: withValidatedPath(i.config, executor), stores: i.stores, bus, logger: i.logger,
