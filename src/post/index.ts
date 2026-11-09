@@ -4,7 +4,7 @@ import type { PostStore } from "./deps.js";
 import { createExtractStep } from "./extract.js";
 import { findTools } from "./extract-tools.js";
 import { createTitleStep } from "./title-nfo.js";
-import type { AfterPromoteInput, AfterPromoteStep, ExtractInput, ExtractStep, PostPipeline, PostResult, RunNotifier, TitleInput, TitleStep } from "./types.js";
+import type { AfterDeleteInput, AfterDeleteStep, AfterPromoteInput, AfterPromoteStep, ExtractInput, ExtractStep, PostPipeline, PostResult, RunNotifier, TitleInput, TitleStep } from "./types.js";
 
 export type PostPipelineDeps = {
   postStore: PostStore;
@@ -12,6 +12,7 @@ export type PostPipelineDeps = {
   chmod: AfterPromoteStep;
   title?: TitleStep;
   arr?: AfterPromoteStep;
+  arrDelete?: AfterDeleteStep;
   notifier?: RunNotifier;
   logger: Logger;
 };
@@ -49,6 +50,7 @@ export function createPostPipeline(deps: PostPipelineDeps): PostPipeline {
       }
       return { warnings };
     },
+    afterDelete: (input: AfterDeleteInput) => (deps.arrDelete ? guard(logger, "library scan", {}, () => deps.arrDelete!.run(input)) : Promise.resolve({ warnings: [] })),
     afterRun(input) {
       const { notifier } = deps;
       return notifier ? guard(logger, "notifications", {}, () => notifier.run(input)) : Promise.resolve({ warnings: [] });
@@ -57,9 +59,9 @@ export function createPostPipeline(deps: PostPipelineDeps): PostPipeline {
 }
 
 /** The production pipeline: real extractors found on PATH, chmod, and optional *arr / notifier steps supplied by the wiring code. */
-export function createDefaultPostPipeline(i: { postStore: PostStore; logger: Logger; arr?: AfterPromoteStep; notifier?: RunNotifier }): PostPipeline {
+export function createDefaultPostPipeline(i: { postStore: PostStore; logger: Logger; arr?: AfterPromoteStep; arrDelete?: AfterDeleteStep; notifier?: RunNotifier }): PostPipeline {
   const tools = findTools();
   i.logger.info({ sevenZip: tools.sevenZip?.bin ?? null, rar: tools.rar?.name ?? null }, "archive extractors available");
   const base = { postStore: i.postStore, logger: i.logger };
-  return createPostPipeline({ ...base, extract: createExtractStep({ postStore: i.postStore, tools }), chmod: createChmodStep(base), title: createTitleStep({ postStore: i.postStore }), ...(i.arr ? { arr: i.arr } : {}), ...(i.notifier ? { notifier: i.notifier } : {}) });
+  return createPostPipeline({ ...base, extract: createExtractStep({ postStore: i.postStore, tools }), chmod: createChmodStep(base), title: createTitleStep({ postStore: i.postStore }), ...(i.arr ? { arr: i.arr } : {}), ...(i.arrDelete ? { arrDelete: i.arrDelete } : {}), ...(i.notifier ? { notifier: i.notifier } : {}) });
 }

@@ -11,7 +11,7 @@ import { recordDryRun } from "./dry-run.js";
 import type { EventBus } from "./events.js";
 import type { RunJob } from "./manager-types.js";
 import { findMissingLocal } from "./mirror-fs.js";
-import { assertMirrorAllowed, runMirror } from "./mirror-sweep.js";
+import { announceDeletes, assertMirrorAllowed, runMirror } from "./mirror-sweep.js";
 import { ensureStaging, type SameDevice } from "./paths.js";
 import type { DownloadFileRequest } from "./range-downloader.js";
 import { fitToSpace, unitFits, type SpaceReservations, type Statfs, defaultStatfs } from "./space.js";
@@ -108,7 +108,7 @@ class Execution {
     const { failedUnits, droppedUnits } = this.tally;
     await runMirror({
       job: this.job, runId: this.runId, stores: this.deps.stores, listing, now: this.now, signal: this.signal,
-      warn: (m) => { this.postWarnings.push(m); this.note("mirror", "warn", m); }, note: (m, meta) => this.note("mirror", "info", m, meta),
+      warn: (m) => { this.postWarnings.push(m); this.note("mirror", "warn", m); }, note: (m, meta) => this.note("mirror", "info", m, meta), onDeleted: announceDeletes(this.deps.post, this.job, this.runId, this.signal),
     }, dryRun, failedUnits === 0 && droppedUnits === 0);
     return this.finish(requested === "succeeded" && this.postWarnings.length > 0 ? "partial" : requested, summary, plan, kept);
   }

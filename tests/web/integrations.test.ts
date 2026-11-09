@@ -42,6 +42,27 @@ describe("arr target pages", () => {
     expect(h.logs.join("")).not.toContain("KEY-ONE");
   });
 
+  it("test scan sends the typed folder to jellyfin only, and rejects an empty folder", async () => {
+    const { h, post, get } = await boot();
+    const stub = await startStub(() => ({ status: 204, body: "" }));
+    stubs.push(stub);
+    await post("/library-targets", { name: "jf", kind: "jellyfin", url: stub.url, api_key: "JF-KEY" });
+    await post("/library-targets", { name: "tv", kind: "sonarr", url: stub.url, api_key: "K" });
+    const [jf, tv] = [h.deps.stores.arrTargets.listPublic().find((t) => t.name === "jf")!.id, h.deps.stores.arrTargets.listPublic().find((t) => t.name === "tv")!.id];
+    const list = (await get("/library-targets")).body;
+    expect(list).toContain(`/library-targets/${jf}/test-scan`);
+    expect(list).not.toContain(`/library-targets/${tv}/test-scan`);
+    const hx = { "hx-request": "true" };
+    expect((await post(`/library-targets/${jf}/test-scan`, { path: " " }, hx)).body).toContain("Enter the folder");
+    expect(stub.seen).toHaveLength(0);
+    expect((await post(`/library-targets/${jf}/test-scan`, { path: "/data/tv/Show" }, hx)).body).toContain("accepted the scan request");
+    expect(stub.seen[0]).toMatchObject({ method: "POST", url: "/Library/Media/Updated" });
+    expect(JSON.parse(stub.seen[0]!.body)).toEqual({ Updates: [{ Path: "/data/tv/Show", UpdateType: "Modified" }] });
+    expect((await post(`/library-targets/${tv}/test-scan`, { path: "/x" }, hx)).body).toContain("only available for Jellyfin");
+    expect(stub.seen).toHaveLength(1);
+    expect(h.logs.join("")).not.toContain("JF-KEY");
+  });
+
   it("validates url scheme, requires key on create, rejects duplicate names", async () => {
     const { post } = await boot();
     expect((await post("/library-targets", { name: "a", kind: "sonarr", url: "ftp://x", api_key: "k" })).statusCode).toBe(400);
